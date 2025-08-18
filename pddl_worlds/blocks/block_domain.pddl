@@ -24,8 +24,8 @@
         (path-blocked-from-to ?from - location ?to - location) ; Path from ?from to ?to is blocked
     )
 
-    (:functions ;todo: define numeric functions here
-    )
+    ; (:functions ;todo: define numeric functions here
+    ; )
 
     ;define actions here
     (:action move
