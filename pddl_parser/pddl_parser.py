@@ -7,28 +7,30 @@ from pddl.formatter import domain_to_string, problem_to_string
 from pddl import parse_domain, parse_problem
 
 from yaml import safe_load
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Tuple
+
+from operator import itemgetter
 
 problem_config_path = "config/problem_configs/"
 
-# Variables
-obj = Variable("obj", type_tags=["locatable"])
-block, block_1, block_2 = variables("block block1 block2", types=["block"])
-loc, loc1, loc2, x = variables("loc loc1 loc2 x", types=["location"])
-robot = Variable("robot", type_tags=["robot"])
+# # Variables
+# obj = Variable("obj", type_tags=["locatable"])
+# block, block_1, block_2 = variables("block block1 block2", types=["block"])
+# loc, loc1, loc2, x = variables("loc loc1 loc2 x", types=["location"])
+# robot = Variable("robot", type_tags=["robot"])
 
-# Predicates
-at = Predicate("at", obj, loc)
-on = Predicate("on", obj, loc)
-at_top = Predicate("at-top", block)
-gripper_empty = Predicate("gripper-empty")
-path_blocked = Predicate("path-blocked-from-to", loc1, loc2)
+# # Predicates
+# at = Predicate("at", obj, loc)
+# on = Predicate("on", obj, loc)
+# at_top = Predicate("at-top", block)
+# gripper_empty = Predicate("gripper-empty")
+# path_blocked = Predicate("path-blocked-from-to", loc1, loc2)
 
 class PddlParser:
     def __init__(self, config_name: str,
                        domain_name: str,
                        problem_name: str,
-                       problem_config_path: str = "config/problem_configs") -> None:
+                       problem_config_path: str = "config/problem_configs/") -> None:
         
         self.init_path = f"{problem_config_path}{config_name}/init.yaml"
         self.goal_path = f"{problem_config_path}{config_name}/goal.yaml"
@@ -44,96 +46,132 @@ class PddlParser:
             f.close()
 
         self.objects = []
-        self.blk_constants = {}
+        self.positions = {}
+        self.obj_constants = {}
         self.position_constants = {}
+        self.predicates = self.parse_predicates_from_domain(domain_name)
+        self.init_predicates = []
+        self.goal_predicates = []
 
-def parse_to_pddl(config_name: str, domain_name: str, problem_name: str) -> Problem:
-    init_path = f"{problem_config_path}{config_name}/init.yaml"
-    goal_path = f"{problem_config_path}{config_name}/goal.yaml"
+    def define_init_objects(self, init_config: dict) -> Tuple[List[Constant],
+                                                              Dict[str, Constant],
+                                                              Dict[str, List[float]],
+                                                              Dict[str, Constant]]:
+        for obj_name, info in init_config.items():
+            obj = Constant(obj_name, type_tag=info["type"])
 
-    with open(init_path, 'r') as f:
-        init_config = safe_load(f)
+            pos_name = "p" + str(len(self.positions)+1)
+            pos = Constant(pos_name, type_tag="location")
 
-    with open(goal_path, 'r') as f:
-        goal_config = safe_load(f)
+            self.objects.append(obj)
+            self.obj_constants[obj_name] = obj
 
-    obj_dict = init_config['objects']
-    blk_names = obj_dict.keys()
-    blk_constants = {}
-    objects = []
-    init = [gripper_empty()]
-    goal = []
-    positions = {}
+            self.positions[pos_name] = info["position"]
+            self.position_constants[pos_name] = pos
 
-    for blk_name in blk_names:
-        # Define the objects
-        blk = obj_dict[blk_name]
+        return self.objects, self.obj_constants, self.positions, self.position_constants
 
-        type = 'static' if blk['static'] else 'dynamic'
+    def define_init_predicates(self, obj_constants: Dict[str, Constant],
+                                     position_constants: Dict[str, Constant],
+                                     predicates: Dict[str, Predicate]) -> List[Predicate]:
+        predicates_names = predicates.keys()
 
-        blk_constant = Constant(blk_name, type_tag=type)
-        objects.append(blk_constant)
-        blk_constants[blk_name] = blk_constant
+        for predicate_name in predicates_names:
+            match predicate_name:
+                case "gripper-empty":
+                    self.init_predicates.append(predicates["gripper-empty"]())
+                    continue
 
-        pos_name = "p" + blk_name[-1]
-        positions[pos_name] = blk['position']
-        pos_constant = Constant(pos_name, type_tag="location")
-        objects.append(pos_constant)
+                case "at":
+                    at_predicates = self.define_at_predicates(predicates["at"],
+                                                              obj_constants,
+                                                              position_constants)
+                    self.init_predicates.append(at_predicates)
+                    continue
 
-        # Define initial states
-        at_predicate = at(blk_constant, pos_constant)
-        at_top_predicate = at_top(blk_constant)
-        init.append(at_predicate)
-        init.append(at_top_predicate)
+                case "on":
+                    continue
 
-    larry = Constant("larry", type_tag="robot")
-    robot_pos_constant = Constant("pr", type_tag="location")
-    init.append(at(larry, robot_pos_constant))
-    objects.append(larry)
-    objects.append(robot_pos_constant)
+                case "at-top":
+                    for obj_name, obj in obj_constants.items():
+                        if obj_name[:5] == "block":
+                            self.init_predicates.append(predicates["at-top"](obj))
+                    continue
 
-    # Define goal states
-    objs_goal = goal_config['objects']
+                case "path-blocked-from-to":
+                    continue
 
-    for blk_name, content in objs_goal.items():
-        blk_constant = blk_constants[blk_name]
-        pos = content['position']
+                case "holding":
+                    continue
 
-        if pos in positions.values():
-            pos_name = list(positions.keys())[list(positions.values()).index(pos)]
-        else:
-            pos_name = "p" + str(len(positions)+1)
-            positions[pos_name] = pos
+                case _:
+                    print(f"Predicate {predicate_name} not implemented")
+                    raise NotImplementedError()
 
-        pos_constant = Constant(pos_name, type_tag="location")
-        objects.append(pos_constant)
+        return self.init_predicates
 
-        at_predicate = at(blk_constant, pos_constant)
-        goal.append(at_predicate)
+    def define_goal_conditions(self, goal_config: Dict) -> List:
+        goal_objs = {}
+        goal_pos = {}
+        goals = []
 
-    goal_conds = goal[0]
+        for obj_name, content in goal_config.items():
+            obj_constant = self.obj_constants[obj_name]
+            goal_objs[obj_name] = obj_constant
 
-    for g in goal[1:]:
-        goal_conds = goal_conds & g
+            pos = content['position']
 
-    problem = Problem(name=problem_name,
-                      domain_name=domain_name,
-                      objects=objects,
-                      init=init,
-                      goal=goal_conds
-                     )
+            if pos in self.positions.values():
+                all_pos_names = list(self.positions.keys())
+                pos_index = list(self.positions.values()).index(pos)
+                pos_name = all_pos_names[pos_index]
+                pos_constant = self.position_constants[pos_name]
+            else:
+                pos_name = "p" + str(len(self.positions)+1)
+                self.positions[pos_name] = pos
+                pos_constant = Constant(pos_name, type_tag="location")
+                self.position_constants[pos_name] = pos_constant
+                self.objects.append(pos_constant)
 
-    return problem
+            goal_pos[pos_name] = pos_constant
 
-def define_objects(objects: Dict[str, str]) -> List[Constant]:
-    """
-        Parameters:
-            objects: Dictionary(object_name)
-        Defines
-            - Statics and dynamic blocks
-            - Positions
-    """
-    return []
+        goal_at_predicates = self.define_at_predicates(self.predicates["at"],
+                                                       goal_objs,
+                                                       goal_pos)
+
+        goals = goal_at_predicates
+        goal_conds = goals[0]
+
+        for g in goals[1:]:
+            goal_conds = goal_conds & g
+
+        return goal_conds
+
+    @staticmethod
+    def parse_predicates_from_domain(world_name: str) -> Dict[str, Predicate]:
+        domain_path = f"pddl_worlds/{world_name}/{world_name}_domain.pddl"
+
+        # Domain expansion!!!
+        domain = parse_domain(domain_path)
+        predicates_list = list(domain.predicates)
+        predicates = {}
+
+        for p in predicates_list:
+            p_name = p.name
+            predicates[p_name] = p
+
+        return predicates
+
+    @staticmethod
+    def define_at_predicates(at_predicate: Predicate,
+                             obj_constants: Dict[str, Constant],
+                             pos_constants: Dict[str, Constant]) -> List[Predicate]:
+
+        at_predicates = []
+        for obj, pos in zip(obj_constants.values(), pos_constants.values()):
+            at_predicates.append(at_predicate(obj, pos))
+
+        return at_predicates
 
 def instantiate_predicates(objects: List[Constant]) -> List[Predicate]:
     return []

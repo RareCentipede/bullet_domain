@@ -1,39 +1,39 @@
-objects:
-  block_1:
-    static: True
-    position: [0.0, 0.0, 0.0]
-    orientation: [0.0, 0.0, 0.0]
-    color: [0.0, 0.0, 0.0]
-    size: 1.0
+block_1:
+  type: "static"
+  position: [0.0, 0.0, 0.0]
+  orientation: [0.0, 0.0, 0.0]
+  color: [0.0, 0.0, 0.0]
+  size: 1.0
 
-  block_2:
-    static: False
-    position: [3.0, 0.0, 0.0]
-    orientation: [0.0, 0.0, 0.0]
-    color: [1.0, 0.0, 0.0]
-    size: 1.0
+block_2:
+  type: "dynamic"
+  position: [3.0, 0.0, 0.0]
+  orientation: [0.0, 0.0, 0.0]
+  color: [1.0, 0.0, 0.0]
+  size: 1.0
 
-  block_3:
-    static: False
-    position: [0.0, 3.0, 0.0]
-    orientation: [0.0, 0.0, 0.0]
-    color: [0.0, 1.0, 0.0]
-    size: 1.0
+block_3:
+  type: "dynamic"
+  position: [0.0, 3.0, 0.0]
+  orientation: [0.0, 0.0, 0.0]
+  color: [0.0, 1.0, 0.0]
+  size: 1.0
 
-  block_4:
-    static: False
-    position: [3.0, 3.0, 0.0]
-    orientation: [0.0, 0.0, 0.0]
-    color: [0.0, 0.0, 1.0]
-    size: 1.0
+block_4:
+  type: "dynamic"
+  position: [3.0, 3.0, 0.0]
+  orientation: [0.0, 0.0, 0.0]
+  color: [0.0, 0.0, 1.0]
+  size: 1.0
 
-  block_5:
-    static: False
-    position: [-3.0, 0.0, 0.0]
-    orientation: [0.0, 0.0, 0.0]
-    color: [1.0, 1.0, 0.0]
-    size: 1.0
+block_5:
+  type: "dynamic"
+  position: [-3.0, 0.0, 0.0]
+  orientation: [0.0, 0.0, 0.0]
+  color: [1.0, 1.0, 0.0]
+  size: 1.0
 
 robot:
+  type: "robot"
   position: [-3.0, -3.0, 0.0]
   orientation: [0.0, 0.0, 0.0]

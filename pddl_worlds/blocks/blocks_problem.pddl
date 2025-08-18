@@ -1,0 +1,6 @@
+(define (problem test)
+    (:domain block_world)
+    (:objects block_2 block_3 block_4 block_5 - dynamic p1 p2 p3 p4 p5 p7 p8 pr pt - location larry robot - robot block_1 - static)
+    (:init (at block_1 p1) (at block_2 p2) (at block_3 p3) (at block_4 p4) (at block_5 p5) (at larry pr) (at robot pt) (at-top block_1) (at-top block_2) (at-top block_3) (at-top block_4) (at-top block_5) (at-top robot) (gripper-empty))
+    (:goal (and (at block_2 p7) (at block_3 p7) (at block_4 p8) (at block_5 p1)))
+)

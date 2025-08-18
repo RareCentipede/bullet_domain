@@ -1,6 +1,6 @@
 ;Header and description
 
-(define (domain block_world)
+(define (domain blocks)
 
     ;remove requirements that are not needed
     (:requirements :typing :negative-preconditions :conditional-effects)
