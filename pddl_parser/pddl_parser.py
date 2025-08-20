@@ -13,10 +13,9 @@ from operator import itemgetter
 
 problem_config_path = "config/problem_configs/"
 
-class PddlParser:
+class PddlProblemParser:
     def __init__(self, config_name: str,
                        domain_name: str,
-                       problem_name: str,
                        problem_config_path: str = "config/problem_configs/") -> None:
         
         self.init_path = f"{problem_config_path}{config_name}/init.yaml"
@@ -179,5 +178,18 @@ class PddlParser:
 
         return at_predicates
 
-def instantiate_predicates(objects: List[Constant]) -> List[Predicate]:
-    return []
+def parse_plan(plan_file: str) -> List[List[str]]:
+    cmd_book = []
+    with open(plan_file, 'r') as f:
+        plan = f.readlines()
+
+    for i in range(len(plan)-1):
+        plan[i] = plan[i].strip()
+        plan[i] = plan[i][1:-1]
+        cmd_line = plan[i].split(' ')
+        cmd = cmd_line[0]
+        args = cmd_line[1:]
+
+        cmd_book.append([cmd, args])
+
+    return cmd_book
