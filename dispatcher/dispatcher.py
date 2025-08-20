@@ -23,6 +23,11 @@ class CommandDispatcher:
         p.setGravity(0, 0, -9.81)
         p.loadURDF("plane.urdf")
 
+        self.robot_wheel_joints = {2: 'right_front_wheel_joint',
+                                   3: 'right_back_wheel_joint',
+                                   6: 'left_front_wheel_joint',
+                                   7: 'left_back_wheel_joints'}
+
     def initialize_objects(self) -> None:
         for pred in self.init_predicates:
             if pred.name == "at":
@@ -30,7 +35,7 @@ class CommandDispatcher:
                 self.objects.append(obj)
                 pos_name = pred.terms[1].name
                 pos = self.positions[pos_name]
-                pos[-1] = 0.5
+                pos[-1] += 0.5
 
                 urdf_key = obj.split("_")[0]
                 entity_id = p.loadURDF(self.entity_urdf_dict[urdf_key], pos, self.default_orientation)
@@ -42,7 +47,9 @@ class CommandDispatcher:
             pos, orn = p.getBasePositionAndOrientation(entity)
             print(self.objects[entity-1], pos, orn)
 
-        time.sleep(5.0)
+        time.sleep(2.0)
+
+        rob_entity_id = self.object_entity_dict["robot"]
 
         cmd_index = 0
         if duration == 0:
@@ -51,6 +58,9 @@ class CommandDispatcher:
                     cmd, args = commands[cmd_index]
                     self.execute_command(cmd, args)
                 cmd_index += 1
+
+                mode = p.VELOCITY_CONTROL
+                p.setJointMotorControlArray(rob_entity_id, jointIndices=[2, 3, 6, 7], controlMode=mode, targetVelocities=[10.0, 10.0, 10.0, 10.0])
 
                 p.stepSimulation()
                 time.sleep(1./240.)
@@ -99,10 +109,11 @@ class CommandDispatcher:
     def place_action(self, args: List[str]):
         # print(f"Place action executed with args: {args}")
         pos = self.positions[args[2]]
-        pos[0] += 1.2
-        pos[2] = 0.5
+        place_pos = pos
+        place_pos[0] += 1.2
+        place_pos[2] = 0.5
 
         urdf_key = args[1].split("_")[0]
-        entity_id = p.loadURDF(self.entity_urdf_dict[urdf_key], pos, self.default_orientation)
+        entity_id = p.loadURDF(self.entity_urdf_dict[urdf_key], place_pos, self.default_orientation)
         self.entity_ids.append(entity_id)
         self.object_entity_dict[args[1]] = entity_id

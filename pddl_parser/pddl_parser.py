@@ -1,3 +1,5 @@
+import numpy as np
+
 from abc import abstractmethod
 from pddl.logic import Predicate, constants, variables, Variable, Constant
 from pddl.core import Domain, Problem, Formula
@@ -9,7 +11,7 @@ from pddl import parse_domain, parse_problem
 from yaml import safe_load
 from typing import Dict, List, Union, Tuple
 
-from operator import itemgetter
+from scipy.spatial import KDTree
 
 problem_config_path = "config/problem_configs/"
 
@@ -78,9 +80,27 @@ class PddlProblemParser:
                     continue
 
                 case "at-top":
+                    planar_positions = np.array(list(self.positions.values()))[:, :2]
+                    block_tree = KDTree(planar_positions)
+
+                    # TODO: Find a better way to establish physical dependencies between objects
                     for obj_name, obj in obj_constants.items():
-                        if obj_name[:5] == "block":
-                            self.init_predicates.extend([predicates["at-top"](obj)])
+                        obj_type = obj_name.split("_")[0]
+                        if obj_type == "block":
+                            pos_name = "p" + obj_name[-1]
+                            pos = self.positions[pos_name]
+                            xy_coord = pos[:2]
+                            stack = block_tree.query_ball_point(xy_coord, 1)
+
+                            if len(stack) == 1:
+                                self.init_predicates.append(predicates["at-top"](obj))
+                            else:
+                                height = pos[-1]
+                                stack_positions = np.array(list(self.positions.values()))[stack]
+                                stack_heights = stack_positions[:, -1]
+                                if height == max(stack_heights):
+                                    self.init_predicates.append(predicates["at-top"](obj))
+
                     continue
 
                 case "path-blocked-from-to":

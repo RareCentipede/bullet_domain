@@ -35,7 +35,7 @@ def main():
 
     cd = CommandDispatcher(pp.init_predicates, pp.positions)
     cd.initialize_objects()
-    cd.run_simulation(plan)
+    cd.run_simulation([("", [" ", " "])])
 
 if __name__ == "__main__":
     main()
