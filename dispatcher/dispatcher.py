@@ -1,4 +1,5 @@
-from typing import List, Dict
+from typing import List, Dict, Tuple
+from itertools import cycle
 from pddl.logic import Constant, Predicate
 
 import pybullet as p
@@ -12,7 +13,8 @@ class CommandDispatcher:
         self.positions = positions
         self.default_orientation = p.getQuaternionFromEuler([0.0, 0.0, 0.0])
 
-        self.entity_dict = {"block": "cube.urdf", "robot": "r2d2.urdf"}
+        self.entity_urdf_dict = {"block": "cube.urdf", "robot": "r2d2.urdf"}
+        self.object_entity_dict = {}
         self.entity_ids = []
 
         self.physicsClient = p.connect(p.GUI)
@@ -24,48 +26,83 @@ class CommandDispatcher:
     def initialize_objects(self) -> None:
         for pred in self.init_predicates:
             if pred.name == "at":
-                obj = pred.terms[0].name.split("_")[0]
+                obj = pred.terms[0].name
                 self.objects.append(obj)
                 pos_name = pred.terms[1].name
                 pos = self.positions[pos_name]
-                pos[-1] += 0.4
+                pos[-1] = 0.5
 
-                entity_id = p.loadURDF(self.entity_dict[obj], pos, self.default_orientation)
+                urdf_key = obj.split("_")[0]
+                entity_id = p.loadURDF(self.entity_urdf_dict[urdf_key], pos, self.default_orientation)
                 self.entity_ids.append(entity_id)
+                self.object_entity_dict[obj] = entity_id
 
-    def run_simulation(self, duration: int = 0) -> None:
+    def run_simulation(self, commands: List[Tuple[str, List[str]]], duration: int = 0) -> None:
         for entity in self.entity_ids:
             pos, orn = p.getBasePositionAndOrientation(entity)
             print(self.objects[entity-1], pos, orn)
 
+        time.sleep(5.0)
+
+        cmd_index = 0
         if duration == 0:
             while(True):
+                if cmd_index < len(commands):
+                    cmd, args = commands[cmd_index]
+                    self.execute_command(cmd, args)
+                cmd_index += 1
+
                 p.stepSimulation()
                 time.sleep(1./240.)
         else:
             for _ in range(duration):
+                if cmd_index < len(commands):
+                    cmd, args = commands[cmd_index]
+                    self.execute_command(cmd, args)
+                cmd_index += 1
+
                 p.stepSimulation()
                 time.sleep(1./240.)
 
         p.disconnect()
 
-    @staticmethod
-    def execute_command(command: str, args: List[str]):
+    def execute_command(self, command: str, args: List[str]):
         match command:
             case "move":
-                move_action(args)
+                self.move_action(args)
             case "grasp":
-                grasp_action(args)
+                self.grasp_action(args)
             case "place":
-                place_action(args)
+                self.place_action(args)
             case _:
                 print(f"Unknown command: {command}")
 
-def move_action(args: List[str]):
-    print(f"Move action executed with args: {args}")
+    def move_action(self, args: List[str]):
+        # print(f"Move action executed with args: {args}")
+        entity_id = self.object_entity_dict[args[0]]
+        target_pos = self.positions[args[2]]
+        target_pos[0] += 1.2
+        target_pos[2] = 0.4
 
-def grasp_action(args: List[str]):
-    print(f"Grasp action executed with args: {args}")
+        p.removeBody(entity_id)
+        new_entity_id = p.loadURDF(self.entity_urdf_dict[args[0]], target_pos, self.default_orientation)
+        self.entity_ids.append(new_entity_id)
+        self.entity_ids.remove(entity_id)
+        self.object_entity_dict[args[0]] = new_entity_id
 
-def place_action(args: List[str]):
-    print(f"Place action executed with args: {args}")
+    def grasp_action(self, args: List[str]):
+        # print(f"Grasp action executed with args: {args}")
+        entity_id = self.object_entity_dict[args[1]]
+        p.removeBody(entity_id)
+        self.entity_ids.remove(entity_id)
+
+    def place_action(self, args: List[str]):
+        # print(f"Place action executed with args: {args}")
+        pos = self.positions[args[2]]
+        pos[0] += 1.2
+        pos[2] = 0.5
+
+        urdf_key = args[1].split("_")[0]
+        entity_id = p.loadURDF(self.entity_urdf_dict[urdf_key], pos, self.default_orientation)
+        self.entity_ids.append(entity_id)
+        self.object_entity_dict[args[1]] = entity_id

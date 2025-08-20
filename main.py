@@ -31,11 +31,11 @@ def main():
     plans_dir = f"plans/{problem_name}/"
     plan_file = listdir(plans_dir)[-1]
     plan = parse_plan(plans_dir + plan_file)
-    print(pp.init_predicates)
+    print(plan)
 
     cd = CommandDispatcher(pp.init_predicates, pp.positions)
     cd.initialize_objects()
-    cd.run_simulation()
+    cd.run_simulation(plan)
 
 if __name__ == "__main__":
     main()

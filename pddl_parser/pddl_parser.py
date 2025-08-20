@@ -178,7 +178,7 @@ class PddlProblemParser:
 
         return at_predicates
 
-def parse_plan(plan_file: str) -> List[List[str]]:
+def parse_plan(plan_file: str) -> List[Tuple[str, List[str]]]:
     cmd_book = []
     with open(plan_file, 'r') as f:
         plan = f.readlines()
