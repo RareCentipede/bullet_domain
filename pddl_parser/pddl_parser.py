@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from pddl.logic import Predicate, constants, variables, Variable, Constant
-from pddl.core import Domain, Problem
+from pddl.core import Domain, Problem, Formula
 from pddl.action import Action
 from pddl.requirements import Requirements
 from pddl.formatter import domain_to_string, problem_to_string
@@ -13,19 +13,6 @@ from operator import itemgetter
 
 problem_config_path = "config/problem_configs/"
 
-# # Variables
-# obj = Variable("obj", type_tags=["locatable"])
-# block, block_1, block_2 = variables("block block1 block2", types=["block"])
-# loc, loc1, loc2, x = variables("loc loc1 loc2 x", types=["location"])
-# robot = Variable("robot", type_tags=["robot"])
-
-# # Predicates
-# at = Predicate("at", obj, loc)
-# on = Predicate("on", obj, loc)
-# at_top = Predicate("at-top", block)
-# gripper_empty = Predicate("gripper-empty")
-# path_blocked = Predicate("path-blocked-from-to", loc1, loc2)
-
 class PddlParser:
     def __init__(self, config_name: str,
                        domain_name: str,
@@ -35,7 +22,6 @@ class PddlParser:
         self.init_path = f"{problem_config_path}{config_name}/init.yaml"
         self.goal_path = f"{problem_config_path}{config_name}/goal.yaml"
         self.domain_name = domain_name
-        self.problem_name = problem_name
 
         with open(self.init_path, 'r') as f:
             self.init_config = safe_load(f)
@@ -59,12 +45,12 @@ class PddlParser:
                                                               Dict[str, Constant]]:
         for obj_name, info in init_config.items():
             obj = Constant(obj_name, type_tag=info["type"])
+            self.objects.append(obj)
+            self.obj_constants[obj_name] = obj
 
             pos_name = "p" + str(len(self.positions)+1)
             pos = Constant(pos_name, type_tag="location")
-
-            self.objects.append(obj)
-            self.obj_constants[obj_name] = obj
+            self.objects.append(pos)
 
             self.positions[pos_name] = info["position"]
             self.position_constants[pos_name] = pos
@@ -79,14 +65,14 @@ class PddlParser:
         for predicate_name in predicates_names:
             match predicate_name:
                 case "gripper-empty":
-                    self.init_predicates.append(predicates["gripper-empty"]())
+                    self.init_predicates.extend([predicates["gripper-empty"]()])
                     continue
 
                 case "at":
                     at_predicates = self.define_at_predicates(predicates["at"],
                                                               obj_constants,
                                                               position_constants)
-                    self.init_predicates.append(at_predicates)
+                    self.init_predicates.extend(at_predicates)
                     continue
 
                 case "on":
@@ -95,7 +81,7 @@ class PddlParser:
                 case "at-top":
                     for obj_name, obj in obj_constants.items():
                         if obj_name[:5] == "block":
-                            self.init_predicates.append(predicates["at-top"](obj))
+                            self.init_predicates.extend([predicates["at-top"](obj)])
                     continue
 
                 case "path-blocked-from-to":
@@ -110,7 +96,7 @@ class PddlParser:
 
         return self.init_predicates
 
-    def define_goal_conditions(self, goal_config: Dict) -> List:
+    def define_goal_conditions(self, goal_config: Dict) -> Tuple[List[Constant], Union[Predicate, Formula]]:
         goal_objs = {}
         goal_pos = {}
         goals = []
@@ -145,7 +131,27 @@ class PddlParser:
         for g in goals[1:]:
             goal_conds = goal_conds & g
 
-        return goal_conds
+        return self.objects, goal_conds
+
+    def define_problem(self, problem_name: str, save: bool = False):
+        objects, obj_constants, positions, position_constants = self.define_init_objects(self.init_config)
+        init_predicates = self.define_init_predicates(obj_constants, position_constants, self.predicates)
+        objects, goal_conds = self.define_goal_conditions(self.goal_config)
+
+        problem = Problem(name=problem_name,
+                          domain_name=self.domain_name,
+                          objects=objects,
+                          init=init_predicates,
+                          goal=goal_conds)
+
+        print(f"Problem defined successfully: {problem}")
+
+        if save:
+            with open(f"pddl_worlds/{self.domain_name}/{problem_name}.pddl", "w") as f:
+                f.write(problem_to_string(problem))
+                f.close()
+
+        return problem
 
     @staticmethod
     def parse_predicates_from_domain(world_name: str) -> Dict[str, Predicate]:
