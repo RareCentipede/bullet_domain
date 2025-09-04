@@ -24,7 +24,7 @@ def main():
     problem_name = "blocks_problem_2"
 
     pp = PddlProblemParser("stacked", "blocks")
-    pp.define_problem(problem_name=problem_name, save=False)
+    pp.define_problem(problem_name=problem_name, save=True)
 
     solve_pddl_problem("blocks", problem_name)
 
