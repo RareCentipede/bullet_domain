@@ -21,6 +21,7 @@ class PositionObject:
     name: str
     pos: List[float]
     constant: Constant
+    occupied_by: Union["Object", None] = None
 
 @dataclass
 class Object:
@@ -75,6 +76,8 @@ class PddlProblemParser:
                                pos=pos_class,
                                predicates=[])
 
+            pos_class.occupied_by = obj_class
+
             self.positions[pos_name] = pos_class
             self.objects[obj_name] = obj_class
 
@@ -84,6 +87,8 @@ class PddlProblemParser:
                                      positions: Dict[str, PositionObject],
                                      predicates: Dict[str, Predicate]) -> List[Predicate]:
         predicates_names = predicates.keys()
+        print(predicates_names)
+        stacks = find_stacks(self.positions)
 
         for predicate_name in predicates_names:
             match predicate_name:
@@ -92,40 +97,47 @@ class PddlProblemParser:
                     continue
 
                 case "at":
-                    objs = [obj.constant for obj in objects.values()]
-                    pos = [p.constant for p in positions.values()]
+                    object_list = list(objects.values())
+                    position_list = list(positions.values())
                     at_predicates = self.define_at_predicates(predicates["at"],
-                                                              objs,
-                                                              pos)
+                                                              object_list,
+                                                              position_list)
                     self.init_predicates.extend(at_predicates)
                     continue
 
                 case "on":
+                    for stack in stacks:
+                        if len(stack) == 1:
+                            continue
+
+                        # Order the positions in the stack by their z value
+                        pos_objs = [self.positions[p] for p in stack]
+                        sorted_pos = sorted(pos_objs, key=lambda x: x.pos[2], reverse=True)
+
+                        for i in range(len(sorted_pos)-1):
+                            lower_pos = sorted_pos[i+1]
+                            upper_pos = sorted_pos[i]
+
+                            lower_obj = lower_pos.occupied_by
+                            upper_obj = upper_pos.occupied_by
+
+                            on_predicate = predicates["on"](upper_obj.constant, lower_obj.constant)
+                            self.init_predicates.append(on_predicate)
+
                     continue
 
                 case "at-top":
-                    pos_objs = self.positions.values()
-                    pos_coords = [p.pos for p in pos_objs]
-                    planar_positions = np.array(pos_coords)[:, :2]
-                    block_tree = KDTree(planar_positions)
+                    for stack in stacks:
+                        if len(stack) == 1:
+                            top_obj = self.positions[stack[0]].occupied_by
+                        else:
+                            pos_objs = [self.positions[p] for p in stack]
+                            top_pos_id = np.argmax([p.pos[2] for p in pos_objs])
+                            top_pos = pos_objs[top_pos_id]
+                            top_obj = top_pos.occupied_by
 
-                    # TODO: Find a better way to establish physical dependencies between objects
-                    for obj_name, obj in objects.items():
-                        obj_type = obj_name.split("_")[0]
-                        if obj_type == "block":
-                            pos_name = "p" + obj_name[-1]
-                            pos = self.positions[pos_name].pos
-                            xy_coord = pos[:2]
-                            stack = block_tree.query_ball_point(xy_coord, 1)
-
-                            if len(stack) == 1:
-                                self.init_predicates.append(predicates["at-top"](obj.constant))
-                            else:
-                                height = pos[-1]
-                                stack_positions = np.array(pos_coords)[stack]
-                                stack_heights = stack_positions[:, -1]
-                                if height == max(stack_heights):
-                                    self.init_predicates.append(predicates["at-top"](obj.constant))
+                        at_top_predicate = predicates["at-top"](top_obj.constant)
+                        self.init_predicates.append(at_top_predicate)
 
                     continue
 
@@ -147,19 +159,14 @@ class PddlProblemParser:
         goals = []
 
         for obj_name, content in goal_config.items():
-            obj_constant = self.objects[obj_name].constant
-            goal_objs.append(obj_constant)
+            obj = self.objects[obj_name]
+            goal_objs.append(obj)
 
             pos = content['position']
+            pos_name = find_pos_id_from_value(self.positions, pos)
 
-            pos_objs = self.positions.values()
-            pos_coord = [p.pos for p in pos_objs]
-
-            if pos in pos_coord:
-                all_pos_names = list(self.positions.keys())
-                pos_index = pos_coord.index(pos)
-                pos_name = all_pos_names[pos_index]
-                pos_constant = self.positions[pos_name].constant
+            if pos_name is not None:
+                pos_obj = self.positions[pos_name]
             else:
                 pos_name = "p" + str(len(self.positions)+1)
                 pos_constant = Constant(pos_name, type_tag="location")
@@ -169,7 +176,7 @@ class PddlProblemParser:
                 self.positions[pos_name] = pos_obj
                 self.things.append(pos_constant)
 
-            goal_pos.append(pos_constant)
+            goal_pos.append(pos_obj)
 
         goal_at_predicates = self.define_at_predicates(self.predicates["at"],
                                                        goal_objs,
@@ -220,12 +227,19 @@ class PddlProblemParser:
 
     @staticmethod
     def define_at_predicates(at_predicate: Predicate,
-                             objects: List[Constant],
-                             positions: List[Constant]) -> List[Predicate]:
+                             objects: List[Object],
+                             positions: List[PositionObject]) -> List[Predicate]:
 
         at_predicates = []
         for obj, pos in zip(objects, positions):
-            at_predicates.append(at_predicate(obj, pos))
+            at_predicates.append(at_predicate(obj.constant, pos.constant))
+
+            # Update position occupancy
+            old_pos = obj.pos
+            old_pos.occupied_by = None
+
+            pos.occupied_by = obj # type: ignore
+            obj.pos = pos
 
         return at_predicates
 
@@ -244,3 +258,51 @@ def parse_plan(plan_file: str) -> List[Tuple[str, List[str]]]:
         cmd_book.append([cmd, args])
 
     return cmd_book
+
+def find_pos_id_from_value(positions: Dict[str, PositionObject], pos: List[float]) -> Union[str, None]:
+    pos_names = positions.keys()
+    pos_coords = [p.pos for p in positions.values()]
+
+    if pos not in pos_coords:
+        return None
+
+    pos_indx = pos_coords.index(pos)
+    pos_id = list(pos_names)[pos_indx]
+
+    return pos_id
+
+def find_stacks(positions: Dict[str, PositionObject], threshold: float = 0.5) -> List[List[str]]:
+    stacks = []
+    visited_ids = []
+
+    # Make KDTree for the positions
+    pos_objs = positions.values()
+    pos_names = positions.keys()
+
+    pos_coords = [p.pos for p in pos_objs]
+    planar_positions = np.array(pos_coords)[:, :2]
+    block_tree = KDTree(planar_positions)
+
+    # One of the positions is for the robot, which cannot be part of any block stack
+    i = 0
+    while len(visited_ids) < (len(pos_names)-1):
+        if i in visited_ids:
+            i += 1
+            continue
+
+        pos_coord = pos_coords[i]
+
+        stack_inds = block_tree.query_ball_point(pos_coord[:2], threshold)
+
+        if stack_inds == []:
+            stacks.append([list(pos_names)[i]])
+            i += 1
+            continue
+
+        pos_in_stack = np.array(list(pos_names))[stack_inds]
+        stacks.append(pos_in_stack.tolist())
+        visited_ids.extend(list(pos_in_stack))
+
+        i += 1
+
+    return stacks
