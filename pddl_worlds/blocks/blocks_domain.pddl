@@ -58,7 +58,6 @@
                     (not (at ?block ?loc))
                     (holding ?robot ?block)
                     (not (gripper-empty))
-                    (not (at-top ?block))
                     (forall (?below_block - block)
                         (when (on ?block ?below_block)
                             (at-top ?below_block)
@@ -82,7 +81,6 @@
                     (gripper-empty)
                     (not (holding ?robot ?block))
                     (at ?block ?loc)
-                    (at-top ?block)
                     (forall (?below_block - block)
                         (when (and
                                 (at ?below_block ?loc)
