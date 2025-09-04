@@ -3,7 +3,7 @@
 (define (domain blocks)
 
     ;remove requirements that are not needed
-    (:requirements :typing :negative-preconditions :conditional-effects)
+    (:requirements :typing :negative-preconditions :conditional-effects :disjunctive-preconditions :existential-preconditions)
 
     (:types ;todo: enumerate types and their hierarchy here, e.g. car truck bus - vehicle
         location locatable - object
@@ -18,10 +18,11 @@
     (:predicates ;todo: define predicates here
         (at ?obj - locatable ?loc - location) ; Object ?obj is at location ?loc)
         (on ?block1 - block ?block2 - block)
+        (is-ground ?loc - location)
         (at-top ?block - block) ; Block ?block is at the top of its stack
         (gripper-empty)
         (holding ?robot - robot ?block - block) ; Robot ?robot is holding block ?block
-        (path-blocked-from-to ?from - location ?to - location) ; Path from ?from to ?to is blocked
+        (path-blocked-from-to ?from - location ?to - location) ; Path from ?from to ?to is blocked        
     )
 
     ; (:functions ;todo: define numeric functions here
@@ -75,6 +76,15 @@
                         (at ?robot ?loc)
                         (holding ?robot ?block)
                         (not (gripper-empty))
+                        (or
+                            (is-ground ?loc)
+                            (exists (?below_block - block)
+                                (and
+                                    (at ?below_block ?loc)
+                                    (at-top ?below_block)
+                                )
+                            )
+                        )
                       )
 
         :effect (and

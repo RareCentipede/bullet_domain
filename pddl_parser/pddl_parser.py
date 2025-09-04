@@ -98,9 +98,7 @@ class PddlProblemParser:
                 case "at":
                     object_list = list(objects.values())
                     position_list = list(positions.values())
-                    at_predicates = self.define_at_predicates(predicates["at"],
-                                                              object_list,
-                                                              position_list)
+                    at_predicates = self.define_at_predicates(predicates["at"], object_list, position_list)
                     self.init_predicates.extend(at_predicates)
                     continue
 
@@ -125,19 +123,14 @@ class PddlProblemParser:
 
                     continue
 
+                case "is-ground":
+                    on_ground_predicates = self.define_is_ground_predicates(predicates["is-ground"], self.positions)
+                    self.init_predicates.extend(on_ground_predicates)
+                    continue
+
                 case "at-top":
-                    for stack in stacks:
-                        if len(stack) == 1:
-                            top_obj = self.positions[stack[0]].occupied_by
-                        else:
-                            pos_objs = [self.positions[p] for p in stack]
-                            top_pos_id = np.argmax([p.pos[2] for p in pos_objs])
-                            top_pos = pos_objs[top_pos_id]
-                            top_obj = top_pos.occupied_by
-
-                        at_top_predicate = predicates["at-top"](top_obj.constant)
-                        self.init_predicates.append(at_top_predicate)
-
+                    at_top_predicates = self.define_at_top_predicates(predicates["at-top"], stacks, self.positions)
+                    self.init_predicates.extend(at_top_predicates)
                     continue
 
                 case "path-blocked-from-to":
@@ -177,11 +170,16 @@ class PddlProblemParser:
 
             goal_pos.append(pos_obj)
 
-        goal_at_predicates = self.define_at_predicates(self.predicates["at"],
-                                                       goal_objs,
-                                                       goal_pos)
+        goal_at_predicates = self.define_at_predicates(self.predicates["at"], goal_objs, goal_pos)
 
-        goals = goal_at_predicates
+        stacks = find_stacks(self.positions)
+        goal_on_predicates = self.define_on_predicates(self.predicates["on"], stacks, self.positions)
+
+        is_ground_predicates = self.define_is_ground_predicates(self.predicates["is-ground"], self.positions)
+
+        self.init_predicates.extend(is_ground_predicates)
+
+        goals = goal_at_predicates + goal_on_predicates
         goal_conds = goals[0]
 
         for g in goals[1:]:
@@ -241,6 +239,62 @@ class PddlProblemParser:
             obj.pos = pos
 
         return at_predicates
+
+    @staticmethod
+    def define_at_top_predicates(at_top_predicate: Predicate,
+                                 stacks: List[List[str]],
+                                 positions: Dict[str, PositionObject]) -> List[Predicate]:
+        at_top_predicates = []
+        for stack in stacks:
+            if len(stack) == 1:
+                top_obj = positions[stack[0]].occupied_by
+            else:
+                pos_objs = [positions[p] for p in stack]
+                top_pos_id = np.argmax([p.pos[2] for p in pos_objs])
+                top_pos = pos_objs[top_pos_id]
+                top_obj = top_pos.occupied_by
+
+            if top_obj is not None:
+                at_top_predicates.append(at_top_predicate(top_obj.constant))
+
+        return at_top_predicates
+
+    @staticmethod
+    def define_on_predicates(on_predicate: Predicate,
+                             stacks: List[List[str]],
+                             positions: Dict[str, PositionObject]) -> List[Predicate]:
+        on_predicates = []
+        for stack in stacks:
+            if len(stack) == 1:
+                continue
+
+            # Order the positions in the stack by their z value
+            pos_objs = [positions[p] for p in stack]
+            sorted_pos = sorted(pos_objs, key=lambda x: x.pos[2], reverse=True)
+
+            for i in range(len(sorted_pos)-1):
+                lower_pos = sorted_pos[i+1]
+                upper_pos = sorted_pos[i]
+
+                lower_obj = lower_pos.occupied_by
+                upper_obj = upper_pos.occupied_by
+
+                if lower_obj is not None and upper_obj is not None:
+                    on_predicates.append(on_predicate(upper_obj.constant, lower_obj.constant))
+
+        return on_predicates
+
+    @staticmethod
+    def define_is_ground_predicates(is_ground_predicate: Predicate,
+                                    positions: Dict[str, PositionObject]) -> List[Predicate]:
+        is_ground_predicates = []
+
+        for pos in positions.values():
+            pos_coords = pos.pos
+            if pos_coords[2] == 0.0:
+                is_ground_predicates.append(is_ground_predicate(pos.constant))
+
+        return is_ground_predicates
 
 def parse_plan(plan_file: str) -> List[Tuple[str, List[str]]]:
     cmd_book = []
