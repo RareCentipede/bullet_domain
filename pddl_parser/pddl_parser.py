@@ -28,9 +28,7 @@ class Object:
     type_tag: str
     constant: Constant
     pos: PositionObject
-    at_top: bool = False
-    on: Union[None, "Object"] = None
-    below: Union[None, "Object"] = None
+    predicates: List[Predicate]
 
 class PddlProblemParser:
     def __init__(self, config_name: str,
@@ -49,34 +47,41 @@ class PddlProblemParser:
             self.goal_config = safe_load(f)
             f.close()
 
-        self.objects = []
+        self.things = []
+        self.objects = {}
         self.positions = {}
-        self.obj_constants = {}
-        self.position_constants = {}
-        self.predicates = self.parse_predicates_from_domain(domain_name)
+
         self.init_predicates = []
         self.goal_predicates = []
+        self.predicates = self.parse_predicates_from_domain(domain_name)
 
-    def define_init_objects(self, init_config: dict) -> Tuple[List[Constant],
-                                                              Dict[str, Constant],
-                                                              Dict[str, List[float]],
-                                                              Dict[str, Constant]]:
+    def define_init_objects(self, init_config: dict) -> Tuple[Dict[str, Object], Dict[str, PositionObject]]:
         for obj_name, info in init_config.items():
             obj = Constant(obj_name, type_tag=info["type"])
-            self.objects.append(obj)
-            self.obj_constants[obj_name] = obj
 
             pos_name = "p" + str(len(self.positions)+1)
             pos = Constant(pos_name, type_tag="location")
-            self.objects.append(pos)
 
-            self.positions[pos_name] = info["position"]
-            self.position_constants[pos_name] = pos
+            self.things.append(obj)
+            self.things.append(pos)
 
-        return self.objects, self.obj_constants, self.positions, self.position_constants
+            pos_class = PositionObject(name=pos_name,
+                                       pos=info["position"],
+                                       constant=pos)
 
-    def define_init_predicates(self, obj_constants: Dict[str, Constant],
-                                     position_constants: Dict[str, Constant],
+            obj_class = Object(name=obj_name,
+                               type_tag=info["type"],
+                               constant=obj,
+                               pos=pos_class,
+                               predicates=[])
+
+            self.positions[pos_name] = pos_class
+            self.objects[obj_name] = obj_class
+
+        return self.objects, self.positions
+
+    def define_init_predicates(self, objects: Dict[str, Object],
+                                     positions: Dict[str, PositionObject],
                                      predicates: Dict[str, Predicate]) -> List[Predicate]:
         predicates_names = predicates.keys()
 
@@ -87,9 +92,11 @@ class PddlProblemParser:
                     continue
 
                 case "at":
+                    objs = [obj.constant for obj in objects.values()]
+                    pos = [p.constant for p in positions.values()]
                     at_predicates = self.define_at_predicates(predicates["at"],
-                                                              obj_constants,
-                                                              position_constants)
+                                                              objs,
+                                                              pos)
                     self.init_predicates.extend(at_predicates)
                     continue
 
@@ -97,26 +104,28 @@ class PddlProblemParser:
                     continue
 
                 case "at-top":
-                    planar_positions = np.array(list(self.positions.values()))[:, :2]
+                    pos_objs = self.positions.values()
+                    pos_coords = [p.pos for p in pos_objs]
+                    planar_positions = np.array(pos_coords)[:, :2]
                     block_tree = KDTree(planar_positions)
 
                     # TODO: Find a better way to establish physical dependencies between objects
-                    for obj_name, obj in obj_constants.items():
+                    for obj_name, obj in objects.items():
                         obj_type = obj_name.split("_")[0]
                         if obj_type == "block":
                             pos_name = "p" + obj_name[-1]
-                            pos = self.positions[pos_name]
+                            pos = self.positions[pos_name].pos
                             xy_coord = pos[:2]
                             stack = block_tree.query_ball_point(xy_coord, 1)
 
                             if len(stack) == 1:
-                                self.init_predicates.append(predicates["at-top"](obj))
+                                self.init_predicates.append(predicates["at-top"](obj.constant))
                             else:
                                 height = pos[-1]
-                                stack_positions = np.array(list(self.positions.values()))[stack]
+                                stack_positions = np.array(pos_coords)[stack]
                                 stack_heights = stack_positions[:, -1]
                                 if height == max(stack_heights):
-                                    self.init_predicates.append(predicates["at-top"](obj))
+                                    self.init_predicates.append(predicates["at-top"](obj.constant))
 
                     continue
 
@@ -133,29 +142,34 @@ class PddlProblemParser:
         return self.init_predicates
 
     def define_goal_conditions(self, goal_config: Dict) -> Tuple[List[Constant], Union[Predicate, Formula]]:
-        goal_objs = {}
-        goal_pos = {}
+        goal_objs = []
+        goal_pos = []
         goals = []
 
         for obj_name, content in goal_config.items():
-            obj_constant = self.obj_constants[obj_name]
-            goal_objs[obj_name] = obj_constant
+            obj_constant = self.objects[obj_name].constant
+            goal_objs.append(obj_constant)
 
             pos = content['position']
 
-            if pos in self.positions.values():
+            pos_objs = self.positions.values()
+            pos_coord = [p.pos for p in pos_objs]
+
+            if pos in pos_coord:
                 all_pos_names = list(self.positions.keys())
-                pos_index = list(self.positions.values()).index(pos)
+                pos_index = pos_coord.index(pos)
                 pos_name = all_pos_names[pos_index]
-                pos_constant = self.position_constants[pos_name]
+                pos_constant = self.positions[pos_name].constant
             else:
                 pos_name = "p" + str(len(self.positions)+1)
-                self.positions[pos_name] = pos
                 pos_constant = Constant(pos_name, type_tag="location")
-                self.position_constants[pos_name] = pos_constant
-                self.objects.append(pos_constant)
+                pos_obj = PositionObject(name=pos_name,
+                                         pos=pos,
+                                         constant=pos_constant)
+                self.positions[pos_name] = pos_obj
+                self.things.append(pos_constant)
 
-            goal_pos[pos_name] = pos_constant
+            goal_pos.append(pos_constant)
 
         goal_at_predicates = self.define_at_predicates(self.predicates["at"],
                                                        goal_objs,
@@ -167,11 +181,11 @@ class PddlProblemParser:
         for g in goals[1:]:
             goal_conds = goal_conds & g
 
-        return self.objects, goal_conds
+        return self.things, goal_conds
 
     def define_problem(self, problem_name: str, save: bool = False):
-        objects, obj_constants, positions, position_constants = self.define_init_objects(self.init_config)
-        init_predicates = self.define_init_predicates(obj_constants, position_constants, self.predicates)
+        objects, positions = self.define_init_objects(self.init_config)
+        init_predicates = self.define_init_predicates(objects, positions, self.predicates)
         objects, goal_conds = self.define_goal_conditions(self.goal_config)
 
         problem = Problem(name=problem_name,
@@ -206,11 +220,11 @@ class PddlProblemParser:
 
     @staticmethod
     def define_at_predicates(at_predicate: Predicate,
-                             obj_constants: Dict[str, Constant],
-                             pos_constants: Dict[str, Constant]) -> List[Predicate]:
+                             objects: List[Constant],
+                             positions: List[Constant]) -> List[Predicate]:
 
         at_predicates = []
-        for obj, pos in zip(obj_constants.values(), pos_constants.values()):
+        for obj, pos in zip(objects, positions):
             at_predicates.append(at_predicate(obj, pos))
 
         return at_predicates

@@ -1,13 +1,14 @@
 from typing import List, Dict, Tuple
 from itertools import cycle
 from pddl.logic import Constant, Predicate
+from pddl_parser.pddl_parser import Object, PositionObject
 
 import pybullet as p
 import time
 import pybullet_data
 
 class CommandDispatcher:
-    def __init__(self, init_predicates: List[Predicate], positions: Dict[str, List[float]]) -> None:
+    def __init__(self, init_predicates: List[Predicate], positions: Dict[str, PositionObject]) -> None:
         self.objects = []
         self.init_predicates = init_predicates
         self.positions = positions
@@ -34,7 +35,7 @@ class CommandDispatcher:
                 obj = pred.terms[0].name
                 self.objects.append(obj)
                 pos_name = pred.terms[1].name
-                pos = self.positions[pos_name]
+                pos = self.positions[pos_name].pos
                 pos[-1] += 0.5
 
                 urdf_key = obj.split("_")[0]
@@ -90,7 +91,7 @@ class CommandDispatcher:
     def move_action(self, args: List[str]):
         # print(f"Move action executed with args: {args}")
         entity_id = self.object_entity_dict[args[0]]
-        target_pos = self.positions[args[2]]
+        target_pos = self.positions[args[2]].pos
         target_pos[0] += 1.2
         target_pos[2] = 0.4
 
@@ -108,7 +109,7 @@ class CommandDispatcher:
 
     def place_action(self, args: List[str]):
         # print(f"Place action executed with args: {args}")
-        pos = self.positions[args[2]]
+        pos = self.positions[args[2]].pos
         place_pos = pos
         place_pos[0] += 1.2
         place_pos[2] = 0.5
