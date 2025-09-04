@@ -1,0 +1,35 @@
+block_2:
+  position: [0.0, 0.0, 0.0]
+  orientation: [0.0, 0.0, 0.0]
+
+block_3:
+  position: [0.0, 0.0, 1.0]
+  orientation: [0.0, 0.0, 0.0]
+
+block_4:
+  position: [0.0, 0.0, 2.0]
+  orientation: [0.0, 0.0, 0.0]
+
+block_5:
+  position: [0.0, 0.0, 3.0]
+  orientation: [0.0, 0.0, 0.0]
+
+block_6:
+  position: [0.0, 0.0, 4.0]
+  orientation: [0.0, 0.0, 0.0]
+
+block_7:
+  position: [0.0, 0.0, 5.0]
+  orientation: [0.0, 0.0, 0.0]
+
+block_8:
+  position: [0.0, 0.0, 6.0]
+  orientation: [0.0, 0.0, 0.0]
+
+block_9:
+  position: [0.0, 0.0, 7.0]
+  orientation: [0.0, 0.0, 0.0]
+
+block_10:
+  position: [0.0, 0.0, 8.0]
+  orientation: [0.0, 0.0, 0.0]

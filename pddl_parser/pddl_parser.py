@@ -87,7 +87,6 @@ class PddlProblemParser:
                                      positions: Dict[str, PositionObject],
                                      predicates: Dict[str, Predicate]) -> List[Predicate]:
         predicates_names = predicates.keys()
-        print(predicates_names)
         stacks = find_stacks(self.positions)
 
         for predicate_name in predicates_names:
@@ -301,7 +300,7 @@ def find_stacks(positions: Dict[str, PositionObject], threshold: float = 0.5) ->
 
         pos_in_stack = np.array(list(pos_names))[stack_inds]
         stacks.append(pos_in_stack.tolist())
-        visited_ids.extend(list(pos_in_stack))
+        visited_ids.extend(list(stack_inds))
 
         i += 1
 

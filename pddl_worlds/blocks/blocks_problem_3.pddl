@@ -1,0 +1,6 @@
+(define (problem blocks_problem_3)
+    (:domain blocks)
+    (:objects block_10 block_11 block_2 block_3 block_4 block_5 block_6 block_7 block_8 block_9 - dynamic p1 p10 p11 p12 p13 p14 p15 p16 p17 p18 p19 p2 p20 p21 p3 p4 p5 p6 p7 p8 p9 - location robot - robot block_1 - static)
+    (:init (at block_1 p1) (at block_10 p10) (at block_11 p11) (at block_2 p2) (at block_3 p3) (at block_4 p4) (at block_5 p5) (at block_6 p6) (at block_7 p7) (at block_8 p8) (at block_9 p9) (at robot p12) (at-top block_11) (at-top block_5) (at-top block_8) (gripper-empty) (on block_10 block_9) (on block_11 block_10) (on block_2 block_1) (on block_3 block_2) (on block_4 block_3) (on block_5 block_4) (on block_7 block_6) (on block_8 block_7))
+    (:goal (and (at block_2 p13) (at block_3 p14) (at block_4 p15) (at block_5 p16) (at block_6 p17) (at block_7 p18) (at block_8 p19) (at block_9 p20) (at block_10 p21)))
+)
