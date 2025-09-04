@@ -59,8 +59,8 @@ class CommandDispatcher:
                     self.execute_command(cmd, args)
                 cmd_index += 1
 
-                mode = p.VELOCITY_CONTROL
-                p.setJointMotorControlArray(rob_entity_id, jointIndices=[2, 3, 6, 7], controlMode=mode, targetVelocities=[10.0, 10.0, 10.0, 10.0])
+                # mode = p.VELOCITY_CONTROL
+                # p.setJointMotorControlArray(rob_entity_id, jointIndices=[2, 3, 6, 7], controlMode=mode, targetVelocities=[10.0, 10.0, 10.0, 10.0])
 
                 p.stepSimulation()
                 time.sleep(1./240.)
