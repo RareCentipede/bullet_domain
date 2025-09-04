@@ -10,10 +10,27 @@ from pddl import parse_domain, parse_problem
 
 from yaml import safe_load
 from typing import Dict, List, Union, Tuple
+from dataclasses import dataclass
 
 from scipy.spatial import KDTree
 
 problem_config_path = "config/problem_configs/"
+
+@dataclass 
+class PositionObject:
+    name: str
+    pos: List[float]
+    constant: Constant
+
+@dataclass
+class Object:
+    name: str
+    type_tag: str
+    constant: Constant
+    pos: PositionObject
+    at_top: bool = False
+    on: Union[None, "Object"] = None
+    below: Union[None, "Object"] = None
 
 class PddlProblemParser:
     def __init__(self, config_name: str,
