@@ -29,14 +29,16 @@ def main():
     solve_pddl_problem("blocks", problem_name)
 
     plans_dir = f"./plans/{problem_name}/"
+
     try:
-        plan_file = listdir(plans_dir)[-1]
+        plan_files = listdir(plans_dir)
     except:
         subprocess.run(["mkdir", plans_dir])
-        plan_file = listdir(plans_dir)[-1]
+        plan_files = listdir(plans_dir)[-1]
 
+    plan_file_nums = [int(f[-1]) for f in plan_files]
+    plan_file = plan_files[plan_file_nums.index(max(plan_file_nums))]
     plan = parse_plan(plans_dir + plan_file)
-    print(plan)
 
     cd = CommandDispatcher(pp.init_predicates, pp.positions)
     cd.initialize_objects()
