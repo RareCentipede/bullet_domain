@@ -103,23 +103,8 @@ class PddlProblemParser:
                     continue
 
                 case "on":
-                    for stack in stacks:
-                        if len(stack) == 1:
-                            continue
-
-                        # Order the positions in the stack by their z value
-                        pos_objs = [self.positions[p] for p in stack]
-                        sorted_pos = sorted(pos_objs, key=lambda x: x.pos[2], reverse=True)
-
-                        for i in range(len(sorted_pos)-1):
-                            lower_pos = sorted_pos[i+1]
-                            upper_pos = sorted_pos[i]
-
-                            lower_obj = lower_pos.occupied_by
-                            upper_obj = upper_pos.occupied_by
-
-                            on_predicate = predicates["on"](upper_obj.constant, lower_obj.constant)
-                            self.init_predicates.append(on_predicate)
+                    on_predicates = self.define_on_predicates(predicates["on"], stacks, self.positions)
+                    self.init_predicates.extend(on_predicates)
 
                     continue
 
