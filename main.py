@@ -26,7 +26,7 @@ def main():
     pp = PddlProblemParser("many_stacked", "blocks")
     pp.define_problem(problem_name=problem_name, save=True)
 
-    solve_pddl_problem("blocks", problem_name)
+    # solve_pddl_problem("blocks", problem_name)
 
     plans_dir = f"./plans/{problem_name}/"
 

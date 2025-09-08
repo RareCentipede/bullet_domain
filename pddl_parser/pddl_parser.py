@@ -123,11 +123,6 @@ class PddlProblemParser:
 
                     continue
 
-                case "is-ground":
-                    on_ground_predicates = self.define_is_ground_predicates(predicates["is-ground"], self.positions)
-                    self.init_predicates.extend(on_ground_predicates)
-                    continue
-
                 case "at-top":
                     at_top_predicates = self.define_at_top_predicates(predicates["at-top"], stacks, self.positions)
                     self.init_predicates.extend(at_top_predicates)
@@ -174,10 +169,6 @@ class PddlProblemParser:
 
         stacks = find_stacks(self.positions)
         goal_on_predicates = self.define_on_predicates(self.predicates["on"], stacks, self.positions)
-
-        is_ground_predicates = self.define_is_ground_predicates(self.predicates["is-ground"], self.positions)
-
-        self.init_predicates.extend(is_ground_predicates)
 
         goals = goal_at_predicates + goal_on_predicates
         goal_conds = goals[0]
@@ -283,18 +274,6 @@ class PddlProblemParser:
                     on_predicates.append(on_predicate(upper_obj.constant, lower_obj.constant))
 
         return on_predicates
-
-    @staticmethod
-    def define_is_ground_predicates(is_ground_predicate: Predicate,
-                                    positions: Dict[str, PositionObject]) -> List[Predicate]:
-        is_ground_predicates = []
-
-        for pos in positions.values():
-            pos_coords = pos.pos
-            if pos_coords[2] == 0.0:
-                is_ground_predicates.append(is_ground_predicate(pos.constant))
-
-        return is_ground_predicates
 
 def parse_plan(plan_file: str) -> List[Tuple[str, List[str]]]:
     cmd_book = []
