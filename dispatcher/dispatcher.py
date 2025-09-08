@@ -112,7 +112,7 @@ class CommandDispatcher:
         pos = self.positions[args[2]].pos
         place_pos = pos
         # place_pos[0] += 1.2
-        # place_pos[2] = 0.5
+        place_pos[2] += 0.5
         print(args[2], place_pos)
 
         urdf_key = args[1].split("_")[0]
