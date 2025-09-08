@@ -21,12 +21,12 @@ def solve_pddl_problem(domain_name: str, problem_name: str, solver: str = "downw
             raise NotImplementedError()
 
 def main():
-    problem_name = "blocks_problem_2"
+    problem_name = "blocks_problem_3"
 
-    pp = PddlProblemParser("stacked", "blocks")
-    pp.define_problem(problem_name=problem_name, save=False)
+    pp = PddlProblemParser("many_stacked", "blocks")
+    pp.define_problem(problem_name=problem_name, save=True)
 
-    solve_pddl_problem("blocks", problem_name)
+    # solve_pddl_problem("blocks", problem_name)
 
     plans_dir = f"./plans/{problem_name}/"
 
@@ -40,6 +40,7 @@ def main():
     plan_file = plan_files[plan_file_nums.index(max(plan_file_nums))]
     plan = parse_plan(plans_dir + plan_file)
 
+    print(pp.positions)
     cd = CommandDispatcher(pp.init_predicates, pp.positions)
     cd.initialize_objects()
     cd.run_simulation(plan)

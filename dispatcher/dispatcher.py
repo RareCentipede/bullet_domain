@@ -91,7 +91,7 @@ class CommandDispatcher:
     def move_action(self, args: List[str]):
         # print(f"Move action executed with args: {args}")
         entity_id = self.object_entity_dict[args[0]]
-        target_pos = self.positions[args[2]].pos
+        target_pos = self.positions[args[2]].pos.copy()
         target_pos[0] += 1.2
         target_pos[2] = 0.4
 
@@ -111,8 +111,9 @@ class CommandDispatcher:
         # print(f"Place action executed with args: {args}")
         pos = self.positions[args[2]].pos
         place_pos = pos
-        place_pos[0] += 1.2
-        place_pos[2] = 0.5
+        # place_pos[0] += 1.2
+        place_pos[2] += 0.5
+        print(args[2], place_pos)
 
         urdf_key = args[1].split("_")[0]
         entity_id = p.loadURDF(self.entity_urdf_dict[urdf_key], place_pos, self.default_orientation)
