@@ -21,9 +21,9 @@ def solve_pddl_problem(domain_name: str, problem_name: str, solver: str = "downw
             raise NotImplementedError()
 
 def main():
-    problem_name = "blocks_problem_3"
+    problem_name = "blocks_problem_2"
 
-    pp = PddlProblemParser("many_stacked", "blocks")
+    pp = PddlProblemParser("stacked", "blocks")
     pp.define_problem(problem_name=problem_name, save=True)
 
     # solve_pddl_problem("blocks", problem_name)
