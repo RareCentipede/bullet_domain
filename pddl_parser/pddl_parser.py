@@ -119,6 +119,9 @@ class PddlProblemParser:
                 case "holding":
                     continue
 
+                case "is-ground":
+                    continue
+
                 case _:
                     print(f"Predicate {predicate_name} not implemented")
                     raise NotImplementedError()
@@ -134,6 +137,7 @@ class PddlProblemParser:
         goal_at_predicates = self.define_at_predicates(self.predicates["at"], goal_objs, positions)
 
         stacks = find_stacks(self.positions)
+        print("\nDEFINING GOAL ON PREDICATES")
         goal_on_predicates = self.define_on_predicates(self.predicates["on"], stacks, self.positions)
 
         goals = goal_at_predicates + goal_on_predicates
@@ -191,6 +195,7 @@ class PddlProblemParser:
             old_pos = obj.pos
             old_pos.occupied_by = None
             obj.pos = pos_obj
+            pos_obj.occupied_by = obj
             goal_objs.append(obj)
 
         return goal_objs, goal_pos
@@ -259,7 +264,7 @@ class PddlProblemParser:
 
                 lower_obj = lower_pos.occupied_by
                 upper_obj = upper_pos.occupied_by
-
+                print(f"Lower obj: {lower_obj}, Upper obj: {upper_obj}")
                 if lower_obj is not None and upper_obj is not None:
                     on_predicates.append(on_predicate(upper_obj.constant, lower_obj.constant))
 
