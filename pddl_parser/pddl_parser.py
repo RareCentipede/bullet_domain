@@ -88,7 +88,12 @@ class PddlProblemParser:
     def define_init_predicates(self, objects: Dict[str, Object],
                                      positions: Dict[str, PositionObject],
                                      predicates: Dict[str, Predicate]) -> List[Predicate]:
-        predicates_names = predicates.keys()
+        predicates_names = list(predicates.keys())
+
+        # Push "clear" predicate to the end of the list, otherwise everything is shit
+        predicates_names.remove("clear")
+        predicates_names.append("clear")
+
         stacks = find_stacks(self.positions)
 
         for predicate_name in predicates_names:
@@ -115,6 +120,9 @@ class PddlProblemParser:
                     continue
 
                 case "clear":
+                    clear_predicate = predicates["clear"]
+                    clear_predicates = self.define_clear_predicates(clear_predicate, self.positions)
+                    self.init_predicates.extend(clear_predicates)
                     continue
 
                 case "is-ground":
@@ -281,20 +289,12 @@ class PddlProblemParser:
 
     @staticmethod
     def define_clear_predicates(clear_predicate: Predicate,
-                                stacks: List[List[str]],
                                 positions: Dict[str, PositionObject]) -> List[Predicate]:
         clear_predicates = []
 
-        for stack in stacks:
-            if len(stack) == 1:
-                pos_name = stack[0]
-                top_constant = positions[pos_name].constant
-            else:
-                pos_objs = [positions[p] for p in stack]
-                top_pos_id = np.argmax([p.pos[2] for p in pos_objs])
-                top_constant = pos_objs[top_pos_id].constant
-
-            clear_predicates.append(clear_predicate(top_constant))
+        for pos_obj in positions.values():
+            if pos_obj.occupied_by is None:
+                clear_predicates.append(clear_predicate(pos_obj.constant))
 
         return clear_predicates
 
