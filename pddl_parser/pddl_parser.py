@@ -55,6 +55,8 @@ class PddlProblemParser:
         self.init_predicates = []
         self.goal_predicates = []
         self.predicates = self.parse_predicates_from_domain(domain_name)
+        self.ground = Constant("gnd", type_tag="location")
+        self.things.append(self.ground)
 
     def define_init_objects(self, init_config: dict) -> Tuple[Dict[str, Object], Dict[str, PositionObject]]:
         for obj_name, info in init_config.items():
@@ -105,7 +107,6 @@ class PddlProblemParser:
                 case "on":
                     on_predicates = self.define_on_predicates(predicates["on"], stacks, self.positions)
                     self.init_predicates.extend(on_predicates)
-
                     continue
 
                 case "at-top":
@@ -113,13 +114,21 @@ class PddlProblemParser:
                     self.init_predicates.extend(at_top_predicates)
                     continue
 
+                case "clear":
+                    continue
+
+                case "is-ground":
+                    ground_predicate = predicates["is-ground"](self.ground)
+                    self.init_predicates.append(ground_predicate)
+                    continue
+
+                case "above":
+                    continue
+
                 case "path-blocked-from-to":
                     continue
 
                 case "holding":
-                    continue
-
-                case "is-ground":
                     continue
 
                 case _:
@@ -269,6 +278,25 @@ class PddlProblemParser:
                     on_predicates.append(on_predicate(upper_obj.constant, lower_obj.constant))
 
         return on_predicates
+
+    @staticmethod
+    def define_clear_predicates(clear_predicate: Predicate,
+                                stacks: List[List[str]],
+                                positions: Dict[str, PositionObject]) -> List[Predicate]:
+        clear_predicates = []
+
+        for stack in stacks:
+            if len(stack) == 1:
+                pos_name = stack[0]
+                top_constant = positions[pos_name].constant
+            else:
+                pos_objs = [positions[p] for p in stack]
+                top_pos_id = np.argmax([p.pos[2] for p in pos_objs])
+                top_constant = pos_objs[top_pos_id].constant
+
+            clear_predicates.append(clear_predicate(top_constant))
+
+        return clear_predicates
 
 def parse_plan(plan_file: str) -> List[Tuple[str, List[str]]]:
     cmd_book = []
