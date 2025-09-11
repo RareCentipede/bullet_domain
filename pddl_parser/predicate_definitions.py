@@ -1,10 +1,25 @@
 import numpy as np
 from pddl.logic import Predicate, Constant
 
-from typing import Dict, List
-from pddl_parser.pddl_parser import Object, PositionObject
+from typing import Dict, List, Union
+from dataclasses import dataclass
 
-def define_at_predicates(at_predicate: Predicate, objects: List[Object]) -> List[Predicate]:
+@dataclass 
+class PositionObject:
+    name: str
+    pos: List[float]
+    constant: Constant
+    occupied_by: Union["Object", None] = None
+
+@dataclass
+class Object:
+    name: str
+    type_tag: str
+    constant: Constant
+    pos: PositionObject
+    predicates: List[Predicate]
+
+def define_at_predicates(at_predicate: Predicate, objects: List["Object"]) -> List[Predicate]:
 
     at_predicates = []
     for obj in objects:

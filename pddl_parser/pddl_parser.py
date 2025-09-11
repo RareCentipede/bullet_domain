@@ -7,27 +7,12 @@ from pddl import parse_domain
 
 from yaml import safe_load
 from typing import Dict, List, Union, Tuple
-from dataclasses import dataclass, replace
+from dataclasses import replace
 
 from scipy.spatial import KDTree
 from pddl_parser.predicate_definitions import *
 
 problem_config_path = "config/problem_configs/"
-
-@dataclass 
-class PositionObject:
-    name: str
-    pos: List[float]
-    constant: Constant
-    occupied_by: Union["Object", None] = None
-
-@dataclass
-class Object:
-    name: str
-    type_tag: str
-    constant: Constant
-    pos: PositionObject
-    predicates: List[Predicate]
 
 class PddlProblemParser:
     def __init__(self, config_name: str,
