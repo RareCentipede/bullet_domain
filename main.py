@@ -7,7 +7,6 @@ from os.path import exists
 from os import listdir
 from os import makedirs
 
-
 import subprocess
 
 def solve_pddl_problem(domain_name: str, problem_name: str, solver: str = "downward", plan_dir: str = "plans/"):
@@ -31,7 +30,7 @@ def main():
     pp = PddlProblemParser("many_stacked", "blocks")
     pp.define_problem(problem_name=problem_name, save=True)
 
-    # solve_pddl_problem("blocks", problem_name)
+    solve_pddl_problem("blocks", problem_name)
 
     plans_dir = f"./plans/{problem_name}/"
 

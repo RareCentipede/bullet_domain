@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 
 from pddl.logic import Predicate, Constant
@@ -63,7 +64,7 @@ class PddlProblemParser:
 
     def define_goal_objects(self, goal_config: Dict) -> Tuple[List[Object], Dict[str, PositionObject], Dict[str, PositionObject]]:
         goal_objs_list = []
-        goal_pos_dict = self.positions.copy()
+        goal_pos_dict = copy.deepcopy(self.positions)
 
         for obj_name, content in goal_config.items():
             obj = replace(self.objects[obj_name])
@@ -82,11 +83,14 @@ class PddlProblemParser:
                                          pos=pos,
                                          constant=pos_constant)
                 self.positions[pos_name] = replace(pos_obj)
-                goal_pos_dict[pos_name] = pos_obj
 
                 # Only new positions have to be added to the 'thing' list
                 # New positions should always be free at the beginning
                 self.things.append(pos_constant)
+
+            old_pos_name = obj.pos.name
+            old_pos = goal_pos_dict[old_pos_name]
+            old_pos.occupied_by = None
 
             goal_pos = pos_obj
             goal_pos.occupied_by = obj
@@ -246,7 +250,7 @@ def find_stacks(positions: Dict[str, PositionObject], threshold: float = 0.5) ->
 
     # One of the positions is for the robot, which cannot be part of any block stack
     i = 0
-    while len(visited_ids) < (len(pos_names)-1):
+    while len(visited_ids) < (len(pos_names)):
         if i in visited_ids:
             i += 1
             continue

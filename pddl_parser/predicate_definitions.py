@@ -43,6 +43,9 @@ def define_at_top_predicates(at_top_predicate: Predicate,
         top_pos = pos_objs[top_pos_id]
         top_obj = top_pos.occupied_by
 
+        if top_obj.name == "robot": # type: ignore
+            continue
+
         at_top_predicates.append(at_top_predicate(top_obj.constant)) # type: ignore
 
     return at_top_predicates
