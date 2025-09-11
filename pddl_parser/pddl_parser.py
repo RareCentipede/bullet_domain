@@ -37,7 +37,7 @@ class PddlProblemParser:
 
         self.init_predicates = []
         self.goal_predicates = []
-        self.predicates = self.parse_predicates_from_domain(domain_name)
+        self.predicates = parse_predicates_from_domain(domain_name)
         self.ground = Constant("gnd", type_tag="location")
         self.things.append(self.ground)
 
@@ -190,21 +190,19 @@ class PddlProblemParser:
 
         return problem
 
+def parse_predicates_from_domain(world_name: str) -> Dict[str, Predicate]:
+    domain_path = f"pddl_worlds/{world_name}/{world_name}_domain.pddl"
 
-    @staticmethod
-    def parse_predicates_from_domain(world_name: str) -> Dict[str, Predicate]:
-        domain_path = f"pddl_worlds/{world_name}/{world_name}_domain.pddl"
+    # Domain expansion!!!
+    domain = parse_domain(domain_path)
+    predicates_list = list(domain.predicates)
+    predicates = {}
 
-        # Domain expansion!!!
-        domain = parse_domain(domain_path)
-        predicates_list = list(domain.predicates)
-        predicates = {}
+    for p in predicates_list:
+        p_name = p.name
+        predicates[p_name] = p
 
-        for p in predicates_list:
-            p_name = p.name
-            predicates[p_name] = p
-
-        return predicates
+    return predicates
 
 def parse_plan(plan_file: str) -> List[Tuple[str, List[str]]]:
     cmd_book = []
