@@ -85,14 +85,46 @@ class PddlProblemParser:
 
         return self.objects, self.positions
 
+    def define_goal_objects(self, goal_config: Dict) -> Tuple[List[Object], List[PositionObject], Dict[str, PositionObject]]:
+        goal_objs = []
+        goal_pos = []
+        clear_pos = {}
+
+        for obj_name, content in goal_config.items():
+            obj = replace(self.objects[obj_name])
+
+            pos = content['position']
+            pos_name = find_pos_id_from_value(self.positions, pos)
+
+            if pos_name is not None:
+                pos_obj = replace(self.positions[pos_name])
+            else:
+                pos_name = "p" + str(len(self.positions)+1)
+                pos_constant = Constant(pos_name, type_tag="location")
+                pos_obj = PositionObject(name=pos_name,
+                                         pos=pos,
+                                         constant=pos_constant)
+                self.positions[pos_name] = pos_obj
+                self.things.append(pos_constant)
+                clear_pos[pos_name] = replace(pos_obj)
+
+            self.positions[pos_name] = pos_obj
+            goal_pos.append(pos_obj)
+
+            obj.pos = pos_obj
+            pos_obj.occupied_by = obj
+            goal_objs.append(obj)
+
+        return goal_objs, goal_pos, clear_pos
+
     def define_init_predicates(self, objects: Dict[str, Object],
                                      positions: Dict[str, PositionObject],
                                      predicates: Dict[str, Predicate]) -> List[Predicate]:
         predicates_names = list(predicates.keys())
 
         # Push "clear" predicate to the end of the list, otherwise everything is shit
-        predicates_names.remove("clear")
-        predicates_names.append("clear")
+        # predicates_names.remove("clear")
+        # predicates_names.append("clear")
 
         stacks = find_stacks(self.positions)
 
@@ -151,7 +183,7 @@ class PddlProblemParser:
         goal_objs = []
         goals = []
 
-        goal_objs, positions, clear_pos = self.define_goal_obj_positions(goal_config)
+        goal_objs, positions, clear_pos = self.define_goal_objects(goal_config)
 
         goal_at_predicates = self.define_at_predicates(self.predicates["at"], goal_objs, positions)
 
@@ -193,39 +225,6 @@ class PddlProblemParser:
 
         return problem
 
-    def define_goal_obj_positions(self, goal_config: Dict) -> Tuple[List[Object], List[PositionObject], Dict[str, PositionObject]]:
-        goal_objs = []
-        goal_pos = []
-        clear_pos = {}
-
-        for obj_name, content in goal_config.items():
-            obj = replace(self.objects[obj_name])
-
-            pos = content['position']
-            pos_name = find_pos_id_from_value(self.positions, pos)
-
-            if pos_name is not None:
-                pos_obj = replace(self.positions[pos_name])
-            else:
-                pos_name = "p" + str(len(self.positions)+1)
-                pos_constant = Constant(pos_name, type_tag="location")
-                pos_obj = PositionObject(name=pos_name,
-                                         pos=pos,
-                                         constant=pos_constant)
-                self.positions[pos_name] = pos_obj
-                self.things.append(pos_constant)
-                clear_pos[pos_name] = replace(pos_obj)
-
-            self.positions[pos_name] = pos_obj
-            goal_pos.append(pos_obj)
-
-            old_pos = obj.pos
-            old_pos.occupied_by = None
-            obj.pos = pos_obj
-            pos_obj.occupied_by = obj
-            goal_objs.append(obj)
-
-        return goal_objs, goal_pos, clear_pos
 
     @staticmethod
     def parse_predicates_from_domain(world_name: str) -> Dict[str, Predicate]:
