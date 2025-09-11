@@ -36,7 +36,6 @@ class CommandDispatcher:
                 self.objects.append(obj)
                 pos_name = pred.terms[1].name
                 pos = self.positions[pos_name].pos
-                pos[-1] += 0.5
 
                 urdf_key = obj.split("_")[0]
                 entity_id = p.loadURDF(self.entity_urdf_dict[urdf_key], pos, self.default_orientation)
@@ -85,6 +84,10 @@ class CommandDispatcher:
                 self.grasp_action(args)
             case "place":
                 self.place_action(args)
+            case "unstack":
+                self.grasp_action(args)
+            case "stack":
+                self.place_action(args)
             case _:
                 print(f"Unknown command: {command}")
 
@@ -112,7 +115,7 @@ class CommandDispatcher:
         pos = self.positions[args[2]].pos
         place_pos = pos
         # place_pos[0] += 1.2
-        place_pos[2] += 0.5
+        # place_pos[2] += 0.5
         print(args[2], place_pos)
 
         urdf_key = args[1].split("_")[0]
