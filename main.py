@@ -43,9 +43,9 @@ def main():
     plan_file = plan_files[plan_file_nums.index(max(plan_file_nums))]
     plan = parse_plan(plans_dir + plan_file)
 
-    # cd = CommandDispatcher(pp.init_predicates, pp.positions)
-    # cd.initialize_objects()
-    # cd.run_simulation(plan)
+    cd = CommandDispatcher(pp.init_predicates, pp.positions)
+    cd.initialize_objects()
+    cd.run_simulation(plan)
     # cd.run_simulation([("", [" ", " "])])
 
 if __name__ == "__main__":
