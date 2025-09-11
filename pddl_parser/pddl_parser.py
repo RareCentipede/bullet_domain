@@ -68,15 +68,8 @@ class PddlProblemParser:
             self.things.append(obj)
             self.things.append(pos)
 
-            pos_class = PositionObject(name=pos_name,
-                                       pos=info["position"],
-                                       constant=pos)
-
-            obj_class = Object(name=obj_name,
-                               type_tag=info["type"],
-                               constant=obj,
-                               pos=pos_class,
-                               predicates=[])
+            pos_class = PositionObject(name=pos_name, pos=info["position"], constant=pos)
+            obj_class = Object(name=obj_name, type_tag=info["type"], constant=obj, pos=pos_class, predicates=[])
 
             pos_class.occupied_by = obj_class
 
@@ -85,10 +78,9 @@ class PddlProblemParser:
 
         return self.objects, self.positions
 
-    def define_goal_objects(self, goal_config: Dict) -> Tuple[List[Object], List[PositionObject], Dict[str, PositionObject]]:
-        goal_objs = []
-        goal_pos = []
-        clear_pos = {}
+    def define_goal_objects(self, goal_config: Dict) -> Tuple[List[Object], Dict[str, PositionObject], Dict[str, PositionObject]]:
+        goal_objs_list = []
+        goal_pos_dict = self.positions.copy()
 
         for obj_name, content in goal_config.items():
             obj = replace(self.objects[obj_name])
@@ -96,35 +88,36 @@ class PddlProblemParser:
             pos = content['position']
             pos_name = find_pos_id_from_value(self.positions, pos)
 
+            # If position is already in the dictionary, just grab it
+            # Otherwise, make a new Constant and PositionObject
             if pos_name is not None:
-                pos_obj = replace(self.positions[pos_name])
+                pos_obj = goal_pos_dict[pos_name]
             else:
                 pos_name = "p" + str(len(self.positions)+1)
                 pos_constant = Constant(pos_name, type_tag="location")
                 pos_obj = PositionObject(name=pos_name,
                                          pos=pos,
                                          constant=pos_constant)
-                self.positions[pos_name] = pos_obj
+                self.positions[pos_name] = replace(pos_obj)
+                goal_pos_dict[pos_name] = pos_obj
+
+                # Only new positions have to be added to the 'thing' list
+                # New positions should always be free at the beginning
                 self.things.append(pos_constant)
-                clear_pos[pos_name] = replace(pos_obj)
 
-            self.positions[pos_name] = pos_obj
-            goal_pos.append(pos_obj)
+            goal_pos = pos_obj
+            goal_pos.occupied_by = obj
+            obj.pos = goal_pos
 
-            obj.pos = pos_obj
-            pos_obj.occupied_by = obj
-            goal_objs.append(obj)
+            goal_pos_dict[pos_name] = goal_pos
+            goal_objs_list.append(obj)
 
-        return goal_objs, goal_pos, clear_pos
+        return goal_objs_list, goal_pos_dict, self.positions
 
     def define_init_predicates(self, objects: Dict[str, Object],
                                      positions: Dict[str, PositionObject],
                                      predicates: Dict[str, Predicate]) -> List[Predicate]:
         predicates_names = list(predicates.keys())
-
-        # Push "clear" predicate to the end of the list, otherwise everything is shit
-        # predicates_names.remove("clear")
-        # predicates_names.append("clear")
 
         stacks = find_stacks(self.positions)
 
@@ -136,24 +129,23 @@ class PddlProblemParser:
 
                 case "at":
                     object_list = list(objects.values())
-                    position_list = list(positions.values())
-                    at_predicates = self.define_at_predicates(predicates["at"], object_list, position_list)
+                    at_predicates = self.define_at_predicates(predicates["at"], object_list)
                     self.init_predicates.extend(at_predicates)
                     continue
 
                 case "on":
-                    on_predicates = self.define_on_predicates(predicates["on"], stacks, self.positions)
+                    on_predicates = self.define_on_predicates(predicates["on"], stacks, positions)
                     self.init_predicates.extend(on_predicates)
                     continue
 
                 case "at-top":
-                    at_top_predicates = self.define_at_top_predicates(predicates["at-top"], stacks, self.positions)
+                    at_top_predicates = self.define_at_top_predicates(predicates["at-top"], stacks, positions)
                     self.init_predicates.extend(at_top_predicates)
                     continue
 
                 case "clear":
                     clear_predicate = predicates["clear"]
-                    clear_predicates = self.define_clear_predicates(clear_predicate, self.positions)
+                    clear_predicates = self.define_clear_predicates(clear_predicate, positions)
                     self.init_predicates.extend(clear_predicates)
                     continue
 
@@ -163,7 +155,7 @@ class PddlProblemParser:
                     continue
 
                 case "above":
-                    above_predicates = self.define_above_predicates(predicates["above"], stacks, self.positions, self.ground)
+                    above_predicates = self.define_above_predicates(predicates["above"], stacks, positions, self.ground)
                     self.init_predicates.extend(above_predicates)
                     continue
 
@@ -179,23 +171,11 @@ class PddlProblemParser:
 
         return self.init_predicates
 
-    def define_goal_conditions(self, goal_config: Dict) -> Tuple[List[Constant], Union[Predicate, Formula]]:
-        goal_objs = []
-        goals = []
+    def define_goal_conditions(self, goal_objs: List[Object], positions: Dict[str, PositionObject]) -> Tuple[List[Constant], Union[Predicate, Formula]]:
+        stacks = find_stacks(positions)
 
-        goal_objs, positions, clear_pos = self.define_goal_objects(goal_config)
-
-        goal_at_predicates = self.define_at_predicates(self.predicates["at"], goal_objs, positions)
-
-        stacks = find_stacks(self.positions)
-        print("\nDEFINING GOAL ON PREDICATES")
-        goal_on_predicates = self.define_on_predicates(self.predicates["on"], stacks, self.positions)
-
-        clear_predicates = self.define_clear_predicates(self.predicates["clear"], clear_pos)
-        self.init_predicates.extend(clear_predicates)
-
-        above_predicates = self.define_above_predicates(self.predicates["above"], stacks, self.positions, self.ground)
-        self.init_predicates.extend(above_predicates)
+        goal_at_predicates = self.define_at_predicates(self.predicates["at"], goal_objs)
+        goal_on_predicates = self.define_on_predicates(self.predicates["on"], stacks, positions)
 
         goals = goal_at_predicates + goal_on_predicates
         goal_conds = goals[0]
@@ -207,8 +187,10 @@ class PddlProblemParser:
 
     def define_problem(self, problem_name: str, save: bool = False):
         objects, positions = self.define_init_objects(self.init_config)
+        goal_objs_list, goal_pos_dict, positions = self.define_goal_objects(self.goal_config)
+
         init_predicates = self.define_init_predicates(objects, positions, self.predicates)
-        objects, goal_conds = self.define_goal_conditions(self.goal_config)
+        objects, goal_conds = self.define_goal_conditions(goal_objs_list, goal_pos_dict)
 
         problem = Problem(name=problem_name,
                           domain_name=self.domain_name,
@@ -242,9 +224,7 @@ class PddlProblemParser:
         return predicates
 
     @staticmethod
-    def define_at_predicates(at_predicate: Predicate,
-                             objects: List[Object],
-                             positions: List[PositionObject]) -> List[Predicate]:
+    def define_at_predicates(at_predicate: Predicate, objects: List[Object]) -> List[Predicate]:
 
         at_predicates = []
         for obj in objects:
@@ -258,16 +238,18 @@ class PddlProblemParser:
                                  positions: Dict[str, PositionObject]) -> List[Predicate]:
         at_top_predicates = []
         for stack in stacks:
-            if len(stack) == 1:
-                top_obj = positions[stack[0]].occupied_by
-            else:
-                pos_objs = [positions[p] for p in stack]
-                top_pos_id = np.argmax([p.pos[2] for p in pos_objs])
-                top_pos = pos_objs[top_pos_id]
-                top_obj = top_pos.occupied_by
+            pos_objs = [positions[p] for p in stack]
 
-            if top_obj is not None:
-                at_top_predicates.append(at_top_predicate(top_obj.constant))
+            occupied_positions = [p for p in pos_objs if p.occupied_by is not None]
+
+            if occupied_positions == []:
+                continue
+
+            top_pos_id = np.argmax([p.pos[2] for p in occupied_positions])
+            top_pos = pos_objs[top_pos_id]
+            top_obj = top_pos.occupied_by
+
+            at_top_predicates.append(at_top_predicate(top_obj.constant)) # type: ignore
 
         return at_top_predicates
 
@@ -290,7 +272,7 @@ class PddlProblemParser:
 
                 lower_obj = lower_pos.occupied_by
                 upper_obj = upper_pos.occupied_by
-                print(f"Lower obj: {lower_obj}, Upper obj: {upper_obj}")
+
                 if lower_obj is not None and upper_obj is not None:
                     on_predicates.append(on_predicate(upper_obj.constant, lower_obj.constant))
 
