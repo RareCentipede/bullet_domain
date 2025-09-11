@@ -10,7 +10,7 @@ from pddl import parse_domain, parse_problem
 
 from yaml import safe_load
 from typing import Dict, List, Union, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from scipy.spatial import KDTree
 
@@ -131,6 +131,8 @@ class PddlProblemParser:
                     continue
 
                 case "above":
+                    above_predicates = self.define_above_predicates(predicates["above"], stacks, self.positions, self.ground)
+                    self.init_predicates.extend(above_predicates)
                     continue
 
                 case "path-blocked-from-to":
@@ -149,13 +151,19 @@ class PddlProblemParser:
         goal_objs = []
         goals = []
 
-        goal_objs, positions = self.define_goal_obj_positions(goal_config)
+        goal_objs, positions, clear_pos = self.define_goal_obj_positions(goal_config)
 
         goal_at_predicates = self.define_at_predicates(self.predicates["at"], goal_objs, positions)
 
         stacks = find_stacks(self.positions)
         print("\nDEFINING GOAL ON PREDICATES")
         goal_on_predicates = self.define_on_predicates(self.predicates["on"], stacks, self.positions)
+
+        clear_predicates = self.define_clear_predicates(self.predicates["clear"], clear_pos)
+        self.init_predicates.extend(clear_predicates)
+
+        above_predicates = self.define_above_predicates(self.predicates["above"], stacks, self.positions, self.ground)
+        self.init_predicates.extend(above_predicates)
 
         goals = goal_at_predicates + goal_on_predicates
         goal_conds = goals[0]
@@ -185,18 +193,19 @@ class PddlProblemParser:
 
         return problem
 
-    def define_goal_obj_positions(self, goal_config: Dict) -> Tuple[List[Object], List[PositionObject]]:
+    def define_goal_obj_positions(self, goal_config: Dict) -> Tuple[List[Object], List[PositionObject], Dict[str, PositionObject]]:
         goal_objs = []
         goal_pos = []
+        clear_pos = {}
 
         for obj_name, content in goal_config.items():
-            obj = self.objects[obj_name]
+            obj = replace(self.objects[obj_name])
 
             pos = content['position']
             pos_name = find_pos_id_from_value(self.positions, pos)
 
             if pos_name is not None:
-                pos_obj = self.positions[pos_name]
+                pos_obj = replace(self.positions[pos_name])
             else:
                 pos_name = "p" + str(len(self.positions)+1)
                 pos_constant = Constant(pos_name, type_tag="location")
@@ -205,6 +214,7 @@ class PddlProblemParser:
                                          constant=pos_constant)
                 self.positions[pos_name] = pos_obj
                 self.things.append(pos_constant)
+                clear_pos[pos_name] = replace(pos_obj)
 
             self.positions[pos_name] = pos_obj
             goal_pos.append(pos_obj)
@@ -215,7 +225,7 @@ class PddlProblemParser:
             pos_obj.occupied_by = obj
             goal_objs.append(obj)
 
-        return goal_objs, goal_pos
+        return goal_objs, goal_pos, clear_pos
 
     @staticmethod
     def parse_predicates_from_domain(world_name: str) -> Dict[str, Predicate]:
@@ -286,6 +296,34 @@ class PddlProblemParser:
                     on_predicates.append(on_predicate(upper_obj.constant, lower_obj.constant))
 
         return on_predicates
+
+    @staticmethod
+    def define_above_predicates(above_predicate: Predicate,
+                                stacks: List[List[str]],
+                                positions: Dict[str, PositionObject],
+                                ground: Constant) -> List[Predicate]:
+        above_predicates = []
+        for stack in stacks:
+            if len(stack) == 1:
+                above_gnd_pos = positions[stack[0]].constant
+                above_p = above_predicate(above_gnd_pos, ground)
+                above_predicates.append(above_p)
+                continue
+
+            # Order the positions in the stack by their z value
+            pos_objs = [positions[p] for p in stack]
+            sorted_pos = sorted(pos_objs, key=lambda x: x.pos[2], reverse=True)
+            above_gnd_pos = sorted_pos[-1].constant
+            above_p = above_predicate(above_gnd_pos, ground)
+            above_predicates.append(above_p)
+
+            for i in range(len(sorted_pos)-1):
+                lower_pos = sorted_pos[i+1]
+                upper_pos = sorted_pos[i]
+
+                above_predicates.append(above_predicate(upper_pos.constant, lower_pos.constant))
+
+        return above_predicates
 
     @staticmethod
     def define_clear_predicates(clear_predicate: Predicate,

@@ -76,8 +76,8 @@
     (:action unstack ; Grasp a block from on top of another block
         :parameters (?robot - robot
                      ?block - dynamic
-                     ?below_block - block
                      ?loc - location
+                     ?below_block - block
                      ?below_loc - location
         )
 
@@ -135,8 +135,8 @@
     (:action stack
         :parameters (?robot - robot
                      ?block - dynamic
-                     ?below_block - block
                      ?loc - location
+                     ?below_block - block
                      ?below_loc - location
         )
 
