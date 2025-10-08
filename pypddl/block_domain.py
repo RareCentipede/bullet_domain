@@ -1,62 +1,83 @@
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Callable, Tuple, Union, Any
-from core import action, Object, Pose
+from core import action, Object, Pose, Predicate
 from abc import abstractmethod
 
 @dataclass
 class Block(Object):
     on_top_of: Optional['Object'] = None
-    underneath: Optional['Object'] = None
+    below: Optional['Object'] = None
 
 @dataclass
 class Robot(Object):
     gripper_empty: bool = True
     holding: Optional[Object] = None
 
-# Predicate functions
-class States:
-    def __init__(self, supporting_obj: Block):
-        self.supporting_object = supporting_obj
+@dataclass
+class At(Predicate):
+    name: str = 'at'
 
-    @staticmethod
-    def at(obj: Object, pose: Pose) -> bool:
+    def eval(self, obj: Object, pose: Pose) -> bool:
         return obj.pose == pose
 
-    @staticmethod
-    def not_at(obj: Object, pose: Pose) -> bool:
+@dataclass
+class NotAt(Predicate):
+    name: str = 'not_at'
+
+    def eval(self, obj: Object, pose: Pose) -> bool:
         return obj.pose != pose
 
-    @staticmethod
-    def gripper_empty(robot: Robot) -> bool:
+@dataclass 
+class GripperEmpty(Predicate):
+    name: str = 'gripper_empty'
+
+    def eval(self, robot: Robot) -> bool:
         return robot.gripper_empty
 
-    @staticmethod
-    def at_top(blk: Block) -> bool:
-        return blk.underneath is None
+@dataclass
+class AtTop(Predicate):
+    name: str = 'at_top'
 
-    @staticmethod
-    def holding(robot: Robot, obj: Object) -> bool:
+    def eval(self, block: Block) -> bool:
+        return block.below is None
+
+@dataclass
+class Holding(Predicate):
+    name: str = 'holding'
+
+    def eval(self, robot: Robot, obj: Object) -> bool:
         return robot.holding == obj
 
-    @staticmethod
-    def clear(pose: Pose) -> bool:
+@dataclass
+class Clear(Predicate):
+    name: str = 'clear'
+
+    def eval(self, pose: Pose) -> bool:
         return pose.occupied_by is None
 
-    @staticmethod
-    def pose_supported(pose: Pose) -> bool:
-        return True # Simplified for now
+@dataclass
+class PoseSupported(Predicate):
+    name: str = 'pose_supported'
+
+    def eval(self, pose: Pose) -> bool:
+        return True
+
+# Predicate functions
+@dataclass
+class States:
+    supporting_object: Block
 
     def find_supportting_object(self, pose: Pose) -> Block:
         return self.supporting_object
 
 # Aliases for easier use in decorators
-at = States.at
-not_at = States.not_at
-gripper_empty = States.gripper_empty
-at_top = States.at_top
-holding = States.holding
-clear = States.clear
-pose_supported = States.pose_supported
+at = At()
+not_at = NotAt()
+gripper_empty = GripperEmpty()
+at_top = AtTop()
+holding = Holding()
+clear = Clear()
+pose_supported = PoseSupported()
 
 support_block = Block(name='support', init_pose=Pose(name='support_pose', position=(0,0,0)))
 states = States(support_block)
@@ -66,8 +87,12 @@ find_supportting_object = states.find_supportting_object
 @action(
     preconds=[('robot_not_at_target', not_at, [Robot, Pose])],
     effect=lambda robot, target_pose: (
+        old_pose := robot.pose,
+        at.update(robot, old_pose, False),
+        not_at.update(robot, old_pose, True),
+
         setattr(robot.pose, 'occupied_by', None),
-        setattr(robot, 'pose', target_pose)
+        setattr(robot, 'pose', target_pose),
     )
 )
 def move(robot: Robot, target_pose: Pose):
@@ -79,6 +104,12 @@ def move(robot: Robot, target_pose: Pose):
               ('object_at_picking_pose', at, [Block, Pose]),
               ('object_at_top', at_top, [Block])],
     effect=lambda robot, obj, pose: (
+        gripper_empty.update(robot, False),
+        holding.update(robot, obj, True),
+        clear.update(pose, True),
+        at.update(obj, obj.pose, False),
+        not_at.update(obj, obj.pose, True),
+
         setattr(robot, 'gripper_empty', False),
         setattr(robot, 'holding', obj),
         setattr(obj.on_top_of, 'underneath', None) if obj.on_top_of else None,
@@ -95,20 +126,25 @@ def grasp(robot: Robot, obj: Object, pose: Pose):
               ('placing_pose_clear', clear, [Pose]),
               ('position_supported', pose_supported, [Pose])],
     effect=lambda robot, obj, target_pose: (
+        not_at.update(obj, obj.pose, True),
+        at.update(obj, target_pose, True),
+        gripper_empty.update(robot, True),
+        holding.update(robot, obj, False),
+        clear.update(target_pose, False),
+        at_top.update(obj, True),
+
+        setattr(obj, 'pose', target_pose),
         setattr(robot, 'gripper_empty', True),
         setattr(robot, 'holding', None),
-        setattr(target_pose, 'occupied_by', obj)
+        setattr(target_pose, 'occupied_by', obj),
+        support_block := states.find_supportting_object(target_pose),
+        setattr(obj, 'on_top_of', support_block),
+        setattr(support_block, 'underneath', obj)
+
     )
 )
 def place(robot: Robot, obj: Block, target_pose: Pose):
-    # Extra effects
-    support_obj = find_supportting_object(target_pose)
-    obj.on_top_of = support_obj
-
-    setattr(obj, 'on_top_of', support_obj)
-    setattr(support_obj, 'underneath', obj)
-
-    print(f"Robot {robot.name} places object {obj.name} on support {obj.on_top_of.name} at pose {target_pose.name}: {target_pose.position}")
+    print(f"Robot {robot.name} places object {obj.name} on support {obj.on_top_of.name if obj.on_top_of is not None else 'ground'} at pose {target_pose.name}: {target_pose.position}")
 
 p1 = Pose(name='p1', position=(0, 0, 0))
 p2 = Pose(name='p2', position=(1, 0, 0))
@@ -116,6 +152,9 @@ p3 = Pose(name='p3', position=(0, 1, 0))
 larry = Robot(name='Larry', init_pose=p1)
 
 b1 = Block(name='b1', init_pose=p2, goal_pose=p3)
+b2 = Block(name='b2', init_pose=p1, goal_pose=p1)
+
+print(at(b1, p2))
 
 failed_preconds = move(larry, p2)
 if failed_preconds:
@@ -124,4 +163,9 @@ if failed_preconds:
 else:
     grasp(larry, b1, p2)
     move(larry, p3)
-    place(larry, b1, p3)
+    results = place(larry, b1, p3)
+    print(results)
+
+print(at(b1, p2), at(b1, p3))
+print(at(b2, p3))
+print(at.evaluated_predicates)
