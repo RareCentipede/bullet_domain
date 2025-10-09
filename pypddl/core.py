@@ -4,16 +4,6 @@ from functools import wraps
 from abc import abstractmethod
 
 @dataclass
-class Object:
-    name: str
-    init_pose: 'Pose'
-    goal_pose: Optional['Pose'] = None
-
-    def __post_init__(self):
-        self.pose = self.init_pose
-        self.pose.occupied_by = self
-
-@dataclass
 class Pose:
     name: str
     position: Tuple[float, float, float]
@@ -21,9 +11,19 @@ class Pose:
     occupied_by: Optional[Any] = None
 
 @dataclass
+class Object:
+    name: str
+    init_pose: Pose
+    goal_pose: Pose = Pose("Nan", (-1, -1, -1))
+
+    def __post_init__(self):
+        self.pose = self.init_pose
+        self.pose.occupied_by = self
+
+@dataclass
 class Predicate:
     name: str
-    evaluated_predicates: Dict[Tuple[str], bool] = field(default_factory=lambda: {})
+    evaluated_predicates: Dict[Tuple[str, ...], bool] = field(default_factory=lambda: {})
 
     @abstractmethod
     def eval(self, *args, **kwargs) -> bool:
@@ -49,8 +49,14 @@ class Predicate:
 class States:
     objects: Dict[str, Object]
     poses: Dict[str, Pose]
-    init_states: Dict[Tuple[str], bool]
-    goal_states: Dict[Tuple[str], bool]
+    init_states: Dict[str, Dict[Tuple[str, ...], bool]]
+    goal_states: Dict[str, Dict[Tuple[str, ...], bool]]
+
+    def get_obj_type(self, obj_name: str, type_: Any) -> Any:
+        obj = self.objects[obj_name]
+
+        assert isinstance(obj, type_), f"Object {obj.__class__.__name__} is not the specificed type: {type_.__name__}"
+        return obj
 
 def action(preconds: List[Tuple[str, Callable, List]], effect: Callable):
     def decorator(func):
