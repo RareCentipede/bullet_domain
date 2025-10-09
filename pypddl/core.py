@@ -45,6 +45,13 @@ class Predicate:
 
         return self.evaluated_predicates[arg_names]
 
+@dataclass
+class States:
+    objects: Dict[str, Object]
+    poses: Dict[str, Pose]
+    init_states: Dict[Tuple[str], bool]
+    goal_states: Dict[Tuple[str], bool]
+
 def action(preconds: List[Tuple[str, Callable, List]], effect: Callable):
     def decorator(func):
         @wraps(func)

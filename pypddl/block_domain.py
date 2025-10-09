@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Callable, Tuple, Union, Any
-from core import action, Object, Pose, Predicate
+from core import action, Object, Pose, Predicate, States
 from abc import abstractmethod
 
 @dataclass
@@ -64,7 +64,7 @@ class PoseSupported(Predicate):
 
 # Predicate functions
 @dataclass
-class States:
+class BlockDomainStates(States):
     supporting_object: Block
 
     def find_supportting_object(self, pose: Pose) -> Block:
@@ -79,9 +79,9 @@ holding = Holding()
 clear = Clear()
 pose_supported = PoseSupported()
 
-support_block = Block(name='support', init_pose=Pose(name='support_pose', position=(0,0,0)))
-states = States(support_block)
-find_supportting_object = states.find_supportting_object
+# support_block = Block(name='support', init_pose=Pose(name='support_pose', position=(0,0,0)))
+# states = BlockStates({}, {}, support_block)
+# find_supportting_object = states.find_supportting_object
 
 # Action definitions
 @action(
@@ -137,35 +137,33 @@ def grasp(robot: Robot, obj: Object, pose: Pose):
         setattr(robot, 'gripper_empty', True),
         setattr(robot, 'holding', None),
         setattr(target_pose, 'occupied_by', obj),
-        support_block := states.find_supportting_object(target_pose),
+        support_block := None,
         setattr(obj, 'on_top_of', support_block),
-        setattr(support_block, 'underneath', obj)
+        setattr(support_block, 'underneath', obj) if support_block is not None else None
 
     )
 )
 def place(robot: Robot, obj: Block, target_pose: Pose):
     print(f"Robot {robot.name} places object {obj.name} on support {obj.on_top_of.name if obj.on_top_of is not None else 'ground'} at pose {target_pose.name}: {target_pose.position}")
 
-p1 = Pose(name='p1', position=(0, 0, 0))
-p2 = Pose(name='p2', position=(1, 0, 0))
-p3 = Pose(name='p3', position=(0, 1, 0))
-larry = Robot(name='Larry', init_pose=p1)
+# p1 = Pose(name='p1', position=(0, 0, 0))
+# p2 = Pose(name='p2', position=(1, 0, 0))
+# p3 = Pose(name='p3', position=(0, 1, 0))
+# larry = Robot(name='Larry', init_pose=p1)
 
-b1 = Block(name='b1', init_pose=p2, goal_pose=p3)
-b2 = Block(name='b2', init_pose=p1, goal_pose=p1)
+# b1 = Block(name='b1', init_pose=p2, goal_pose=p3)
+# b2 = Block(name='b2', init_pose=p1, goal_pose=p1)
 
-print(at(b1, p2))
+# failed_preconds = move(larry, p2)
+# if failed_preconds:
+#     for p in failed_preconds: # type: ignore
+#         print(f"Failed precondition: {p['name']} with args {p['args']}")
+# else:
+#     grasp(larry, b1, p2)
+#     move(larry, p3)
+#     place(larry, b1, p3)
 
-failed_preconds = move(larry, p2)
-if failed_preconds:
-    for p in failed_preconds: # type: ignore
-        print(f"Failed precondition: {p['name']} with args {p['args']}")
-else:
-    grasp(larry, b1, p2)
-    move(larry, p3)
-    results = place(larry, b1, p3)
-    print(results)
-
-print(at(b1, p2), at(b1, p3))
-print(at(b2, p3))
-print(at.evaluated_predicates)
+# objs = {'b1': b1, 'b2': b2, 'larry': larry}
+# poses = {'p1': p1, 'p2': p2, 'p3': p3}
+# test_states = States(objs, poses)
+# test = BlockDomainStates(objs, poses, support_block)
