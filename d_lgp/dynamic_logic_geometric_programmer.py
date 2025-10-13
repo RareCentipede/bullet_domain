@@ -15,7 +15,7 @@ def conflict_driven_task_graph(states: States, action_skeleton: List, goals: Lis
     conflicts = action(args)
 
     while conflicts:
-        a_r, args, s = resolve_conflits(conflicts)
+        a_r, args, s = resolve_conflicts(conflicts)
         action_skeleton.insert(len(action_skeleton)-2, a_r)
         goals.insert(len(goals)-2, s)
 
@@ -27,5 +27,5 @@ def successor_dagger(current_state: State, goal_state: State) -> Tuple[Callable,
 def successor(current_state: State, action: str, action_args: Tuple[str, ...]) -> State:
     return State({})
 
-def resolve_conflits(conflicts: List[Dict[str, Union[str, List[str]]]]) -> Tuple[Callable, Tuple[str, ...], List[State]]:
+def resolve_conflicts(conflicts: List[Dict[str, Union[str, List[str]]]]) -> Tuple[Callable, Tuple[str, ...], List[State]]:
     return (callable, (), [])
