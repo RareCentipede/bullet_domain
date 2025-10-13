@@ -46,13 +46,17 @@ class Predicate:
         return self.evaluated_predicates[arg_names]
 
 @dataclass
+class State:
+    state: Dict[str, Dict[Tuple[str, ...], bool]]
+
+@dataclass
 class States:
     objects: Dict[str, Object]
     poses: Dict[str, Pose]
     init_states: Dict[str, Dict[Tuple[str, ...], bool]]
     goal_states: Dict[str, Dict[Tuple[str, ...], bool]]
 
-    def get_obj_type(self, obj_name: str, type_: Any) -> Any:
+    def get_obj_of_type(self, obj_name: str, type_: Any) -> Any:
         obj = self.objects[obj_name]
 
         assert isinstance(obj, type_), f"Object {obj.__class__.__name__} is not the specificed type: {type_.__name__}"

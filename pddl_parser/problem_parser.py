@@ -106,18 +106,14 @@ def build_physical_relations(states: States):
         objs_in_stack = np.array(objs)[obj_idx_in_stack]
         objs_in_stack = sorted(objs_in_stack, key=lambda obj: (obj.pose.position[-1]))
 
+        for j, obj in enumerate(objs_in_stack):
+            if j > 0:
+                obj.on_top_of = objs_in_stack[j-1]
+
+            if j < len(obj_idx_in_stack)-1:
+                obj.below = objs_in_stack[j+1]
+
         stacks.append([obj.name for obj in objs_in_stack])
-
-    for stack in stacks:
-        for i in range(len(stack)-1):
-            obj_name = stack[i]
-            obj = states.get_obj_type(obj_name, Block)
-
-            above_obj_name = stack[i+1]
-
-            above_obj = states.get_obj_type(above_obj_name, Block)
-            obj.below = above_obj
-            above_obj.on_top_of = obj
 
 def define_init_predicates(states: States):
     for obj, pose in zip(states.objects.values(), states.poses.values()):
