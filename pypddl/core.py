@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Callable, Tuple, Union, Any
+from typing import Optional, List, Dict, Callable, Tuple, Union, Any, NewType
 from functools import wraps
 from abc import abstractmethod
 
@@ -45,22 +45,28 @@ class Predicate:
 
         return self.evaluated_predicates[arg_names]
 
-@dataclass
-class State:
-    state: Dict[str, Dict[Tuple[str, ...], bool]]
+State = NewType("State", Dict[str, Dict[Tuple[str, ...], bool]])
 
 @dataclass
 class States:
     objects: Dict[str, Object]
     poses: Dict[str, Pose]
-    init_states: Dict[str, Dict[Tuple[str, ...], bool]]
-    goal_states: Dict[str, Dict[Tuple[str, ...], bool]]
+    init_states: State
+    states: List[State]
+    goal_states: State
 
     def get_obj_of_type(self, obj_name: str, type_: Any) -> Any:
         obj = self.objects[obj_name]
 
         assert isinstance(obj, type_), f"Object {obj.__class__.__name__} is not the specificed type: {type_.__name__}"
         return obj
+
+    def initialize_states(self):
+        self.states.append(self.init_states)
+        self.states.append(self.goal_states)
+
+    def update_states(self, state: State):
+        self.states.insert(len(self.states)-2, state)
 
 def action(preconds: List[Tuple[str, Callable, List]], effect: Callable):
     def decorator(func):

@@ -5,10 +5,11 @@ from typing import Dict, List, Union, Tuple, Optional, TypeVar, Generic
 
 from scipy.spatial import KDTree
 from pypddl.block_domain import at, not_at, gripper_empty, at_top, holding, clear, pose_supported, At
-from pypddl.block_domain import Object, Pose, Block, Robot, States
+from pypddl.block_domain import Object, Pose, Block, Robot
+from pypddl.core import States, State
 
 def parse_config_to_states(config_name: str, problem_config_path: str = "config/problem_configs/") -> States:
-    states = States({}, {}, {}, {})
+    states = States({}, {}, State({}), [], State({}))
 
     init_config, goal_config = load_configs_to_dicts(config_name, problem_config_path)
     define_init_objects_and_poses(states, init_config)
