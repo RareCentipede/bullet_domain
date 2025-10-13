@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional
-from core import action, Object, Pose, Predicate
+from pypddl.core import action, Object, Pose, Predicate
 
 # Domain specific objects
 @dataclass
