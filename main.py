@@ -2,7 +2,6 @@ from pddl_parser.pddl_parser import PddlProblemParser, parse_plan
 from dispatcher.dispatcher import CommandDispatcher
 from pathlib import Path
 
-from os import listdir
 from os.path import exists
 from os import listdir
 from os import makedirs
