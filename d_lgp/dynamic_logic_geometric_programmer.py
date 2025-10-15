@@ -2,7 +2,7 @@ from abc import abstractmethod
 from typing import List, Tuple, Dict, Union, Callable
 
 from pypddl.core import States, State
-from pypddl.block_domain import at, not_at, gripper_empty, at_top, holding, clear, pose_supported, At
+from pypddl.block_domain import at, gripper_empty, at_top, holding, clear, pose_supported, At
 from pypddl.block_domain import Object, Pose, Block, Robot, move, grasp, place
 
 def dynamic_tree_search(states: States) -> Tuple[List[Dict[str, Union[List[Callable], List[str]]]], List[State]]:

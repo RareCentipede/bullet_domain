@@ -1,6 +1,6 @@
 from dataclasses import dataclass
-from typing import Optional
-from pypddl.core import action, Object, Pose, Predicate
+from typing import Optional, Type, Dict, Any
+from pypddl.core import action, action2, Object, Pose, Predicate, State, States, ActionResults
 
 # Domain specific objects
 @dataclass
@@ -21,7 +21,7 @@ class At(Predicate):
     def eval(self, obj: Object, pose: Pose) -> bool:
         return obj.pose == pose
 
-@dataclass
+@dataclass 
 class NotAt(Predicate):
     name: str = 'not_at'
 
@@ -63,6 +63,7 @@ class PoseSupported(Predicate):
     def eval(self, pose: Pose) -> bool:
         return True
 
+
 # Aliases for easier use in decorators
 at = At()
 not_at = NotAt()
@@ -71,6 +72,16 @@ at_top = AtTop()
 holding = Holding()
 clear = Clear()
 pose_supported = PoseSupported()
+
+# Domain specific states
+# @dataclass
+# class BlockStates(States):
+#     predicates: Dict[str, Any] = {'at': at,
+#                                   'gripper_empty': gripper_empty,
+#                                   'at_top': at_top,
+#                                   'holding': holding,
+#                                   'clear': clear,
+#                                   'pose_supported': pose_supported}
 
 # Action definitions
 @action(
@@ -134,3 +145,22 @@ def grasp(robot: Robot, obj: Object, pose: Pose):
 )
 def place(robot: Robot, obj: Block, target_pose: Pose):
     print(f"Robot {robot.name} places object {obj.name} on support {obj.on_top_of.name if obj.on_top_of is not None else 'ground'} at pose {target_pose.name}: {target_pose.position}")
+
+@action2(
+    preconds=[
+        (at, {'robot': Robot, 'init_pose': Pose}, True),
+        (at, {'robot': Robot, 'target_pose': Pose}, False)],
+    effects=[
+        (at, {'robot': Robot, 'init_pose': Pose}, False),
+        (at, {'robot': Robot, 'target_pose': Pose}, True)]
+)
+def move2(state: State, robot: Robot, init_pose: Pose, target_pose: Pose) -> ActionResults:
+    init_pose.occupied_by = None
+    target_pose.occupied_by = robot
+
+    robot.pose = target_pose
+    print(f"Moving robot {robot.name} from {init_pose.name}: {init_pose.position} to {target_pose.name}: {target_pose.position}")
+
+    res_str = f"Movved {robot.name} from {init_pose.name}: {init_pose.position} to {target_pose.name}: {target_pose.position}"
+
+    return ActionResults([], None, res_str)

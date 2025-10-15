@@ -4,7 +4,7 @@ from yaml import safe_load
 from typing import Dict, List, Union, Tuple, Optional, TypeVar, Generic
 
 from scipy.spatial import KDTree
-from pypddl.block_domain import at, not_at, gripper_empty, at_top, holding, clear, pose_supported, At
+from pypddl.block_domain import at, gripper_empty, at_top, holding, clear, pose_supported, At
 from pypddl.block_domain import Object, Pose, Block, Robot
 from pypddl.core import States, State
 
