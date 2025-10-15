@@ -72,16 +72,6 @@ holding = Holding()
 clear = Clear()
 pose_supported = PoseSupported()
 
-# Domain specific states
-# @dataclass
-# class BlockStates(States):
-#     predicates: Dict[str, Any] = {'at': at,
-#                                   'gripper_empty': gripper_empty,
-#                                   'at_top': at_top,
-#                                   'holding': holding,
-#                                   'clear': clear,
-#                                   'pose_supported': pose_supported}
-
 # Action definitions
 @action(
     preconds=[
