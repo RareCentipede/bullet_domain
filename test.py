@@ -17,8 +17,7 @@ def test():
     robot = states.get_obj_of_type('robot', Robot)
     block_2 = states.get_obj_of_type('block_2', Block)
 
-    for p in states.init_states.values():
-        print(all(list((p.values()))))
+    print(states.goal_reached)
 
     move(robot, block_2.pose)
     grasp(robot, block_2, block_2.pose)

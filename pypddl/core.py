@@ -68,6 +68,15 @@ class States:
     def update_states(self, state: State):
         self.states.insert(len(self.states)-2, state)
 
+    @property
+    def goal_reached(self):
+        goal_conds = []
+
+        for p in self.goal_states.values():
+            goal_conds.append(all(list(p.values())))
+
+        return all(goal_conds)
+
 def action(preconds: List[Tuple[str, Callable, List]], effect: Callable):
     def decorator(func):
         @wraps(func)
