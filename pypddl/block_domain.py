@@ -1,6 +1,6 @@
 from dataclasses import dataclass
-from typing import Optional, Type, Dict, Any
-from pypddl.core import action, Object, Pose, Predicate, State, States, ActionResults
+from typing import Optional
+from pypddl.core import action, Object, Pose, Predicate, State, ActionResults, Condition
 
 # Domain specific objects
 @dataclass
@@ -85,12 +85,12 @@ pose_supported = PoseSupported()
 # Action definitions
 @action(
     preconds=[
-        (at, {'robot': Robot, 'init_pose': Pose}, True),
-        (at, {'robot': Robot, 'target_pose': Pose}, False)
+        Condition((at, {'robot': Robot, 'init_pose': Pose}, True)),
+        Condition((at, {'robot': Robot, 'target_pose': Pose}, False))
     ],
     effects=[
-        (at, {'robot': Robot, 'init_pose': Pose}, False),
-        (at, {'robot': Robot, 'target_pose': Pose}, True)
+        Condition(((at, {'robot': Robot, 'init_pose': Pose}, False))),
+        Condition((at, {'robot': Robot, 'target_pose': Pose}, True))
     ]
 )
 def move(state: State, robot: Robot, init_pose: Pose, target_pose: Pose) -> ActionResults:
@@ -105,16 +105,16 @@ def move(state: State, robot: Robot, init_pose: Pose, target_pose: Pose) -> Acti
 
 @action(
     preconds=[
-        (gripper_empty, {'robot': Robot}, True),
-        (at, {'robot': Robot, 'object_pose': Pose}, True),
-        (at, {'target_object': Block, 'object_pose': Pose}, True),
-        (at_top, {'target_object': Block}, True)
+        Condition((gripper_empty, {'robot': Robot}, True)),
+        Condition((at, {'robot': Robot, 'object_pose': Pose}, True)),
+        Condition((at, {'target_object': Block, 'object_pose': Pose}, True)),
+        Condition((at_top, {'target_object': Block}, True))
     ],
     effects=[
-        (gripper_empty, {'robot': Robot}, False),
-        (holding, {'robot': Robot, 'target_object': Block}, True),
-        (clear, {'object_pose': Pose}, True),
-        (at, {'target_object': Block, 'object_pose': Pose}, False)
+        Condition((gripper_empty, {'robot': Robot}, False)),
+        Condition((holding, {'robot': Robot, 'target_object': Block}, True)),
+        Condition((clear, {'object_pose': Pose}, True)),
+        Condition((at, {'target_object': Block, 'object_pose': Pose}, False))
     ]
 )
 def grasp(state: State, robot: Robot, target_object: Block, object_pose: Pose) -> ActionResults:
@@ -136,17 +136,17 @@ def grasp(state: State, robot: Robot, target_object: Block, object_pose: Pose) -
 
 @action(
     preconds=[
-        (holding, {'robot': Robot, 'object': Block}, True),
-        (at, {'robot': Robot, 'target_pose': Pose}, True),
-        (clear, {'target_pose': Pose}, True),
-        (pose_supported, {'target_pose': Pose}, True)
+        Condition((holding, {'robot': Robot, 'object': Block}, True)),
+        Condition((at, {'robot': Robot, 'target_pose': Pose}, True)),
+        Condition((clear, {'target_pose': Pose}, True)),
+        Condition((pose_supported, {'target_pose': Pose}, True))
     ],
     effects=[
-        (at, {'object': Block, 'target_pose': Pose}, True),
-        (gripper_empty, {'robot': Robot}, True),
-        (holding, {'robot': Robot, 'object': Block}, False),
-        (clear, {'target_pose': Pose}, False),
-        (at_top, {'object': Block}, True)
+        Condition((at, {'object': Block, 'target_pose': Pose}, True)),
+        Condition((gripper_empty, {'robot': Robot}, True)),
+        Condition((holding, {'robot': Robot, 'object': Block}, False)),
+        Condition((clear, {'target_pose': Pose}, False)),
+        Condition((at_top, {'object': Block}, True))
     ]
 )
 def place(state: State, robot: Robot, object: Block, target_pose: Pose) -> ActionResults:

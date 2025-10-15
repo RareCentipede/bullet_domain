@@ -1,9 +1,12 @@
 import copy
 
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Callable, Tuple, Union, Any, NewType, Type
+from typing import List, Dict, Callable, Tuple, Union, Any, NewType, Type
 from functools import wraps
 from abc import abstractmethod
+
+State = NewType("State", Dict[str, Dict[Tuple[str, ...], bool]])
+Condition = NewType("Condition", Tuple[Callable, Dict[str, Type['Thing']], bool])
 
 @dataclass
 class Thing:
@@ -48,8 +51,6 @@ class Predicate:
             self.evaluated_predicates[arg_names] = self.eval(*args)
 
         return self.evaluated_predicates[arg_names]
-
-State = NewType("State", Dict[str, Dict[Tuple[str, ...], bool]])
 
 @dataclass
 class States:
@@ -96,7 +97,7 @@ class States:
 
 @dataclass
 class ActionResults:
-    failed_preconds: List[Tuple[Callable, Dict[str, Type[Thing]], bool]]
+    failed_preconds: List[Condition]
     new_state: State
     result: str
 
@@ -104,14 +105,13 @@ class ActionResults:
     def success(self):
         return self.failed_preconds == []
 
-def action(preconds: List[Tuple[Callable, Dict[str, Type[Thing]], bool]], effects: List[Tuple[Callable, Dict[str, Type[Thing]], bool]]):
+def action(preconds: List[Condition], effects: List[Condition]):
     def decorator(func):
         @wraps(func)
 
         def wrapper(state: State, **kwargs) -> ActionResults:
             failed_preconds = []
             new_state = copy.deepcopy(state)
-
             failed_preconds = find_failed_preconditions(state, kwargs, preconds)
 
             if failed_preconds == []:
@@ -119,21 +119,10 @@ def action(preconds: List[Tuple[Callable, Dict[str, Type[Thing]], bool]], effect
                 result = action_results.result
 
                 for effect in effects:
-                    effect_pred, effect_args, true = effect
-                    effect_name = effect_pred.name
-                    arg_names = effect_args.keys()
+                    effect_def, effect_name, effect_dict_keys, effect_args, true = unpack_conditions(effect, kwargs)
+                    new_state[effect_name] = {effect_dict_keys: true}
+                    effect_def.update(*effect_args, true)
 
-                    inputs = []
-                    pred_inputs = []
-                    for name in arg_names:
-                        kwarg = kwargs[name]
-                        pred_inputs.append(kwarg)
-                        inputs.append(kwarg.name)
-
-                    inputs = tuple(inputs)
-                    # print(effect_name, inputs, effect_pred(*pred_inputs), true)
-                    new_state[effect_name] = {inputs: true}
-                    effect_pred.update(*pred_inputs, true)
             else:
                 result = "Failed"
 
@@ -141,37 +130,42 @@ def action(preconds: List[Tuple[Callable, Dict[str, Type[Thing]], bool]], effect
         return wrapper
     return decorator
 
-def find_failed_preconditions(state: State, kwargs: Dict,
-                              preconditions: List[Tuple[Callable, Dict[str, Type[Thing]], bool]]) -> List[Tuple[Callable, Dict[str, Type[Thing]], bool]]:
+def find_failed_preconditions(state: State, kwargs: Dict, preconditions: List[Condition]) -> List[Condition]:
     failed_preconditions = []
     for precond in preconditions:
-        selected_inputs = {}
-        pred, pred_args, true = precond
-        pred_name = pred.name
-        arg_names = tuple(pred_args.keys())
+        precond_def, precond_name, precond_dict_keys, precond_args, true = unpack_conditions(precond, kwargs)
 
-        for name in arg_names:
-            kwarg = kwargs[name]
-            selected_inputs[kwarg.name] = kwarg
-
-        input_names = tuple(selected_inputs.keys())
-
-        if pred_name not in state.keys():
-            corresponding_preds = {input_names: pred(*selected_inputs.values())}
-            state[pred_name] = corresponding_preds
+        if precond_name not in state.keys():
+            predicate = {precond_dict_keys: precond_def(*precond_args)}
+            state[precond_name] = predicate
         else:
-            corresponding_preds = state[pred_name]
+            predicate = state[precond_name]
 
-        if input_names not in corresponding_preds.keys():
-            corresponding_preds[input_names] = pred(*selected_inputs.values())
+            if precond_dict_keys not in predicate.keys():
+                predicate[precond_dict_keys] = precond_def(*precond_args)
 
-        if corresponding_preds[input_names] != true:
+        if predicate[precond_dict_keys] != true:
             failed_preconditions.append({
-                'name': pred_name,
-                'args': input_names,
-                'cond': {'in state': corresponding_preds[input_names],
+                'name': precond_name,
+                'args': precond_dict_keys,
+                'cond': {'in state': predicate[precond_dict_keys],
                          'expected': true}
             })
 
     return failed_preconditions
     
+def unpack_conditions(condition: Condition, kwargs: Dict) -> Tuple[Callable, str, Tuple[str, ...], List, bool]:
+    cond_def, cond_types, true = condition
+    cond_name = cond_def.name
+    cond_type_names = cond_types.keys()
+
+    cond_dict_keys = []
+    cond_args = []
+
+    for name in cond_type_names:
+        cond_arg = kwargs[name]
+        cond_dict_keys.append(cond_arg.name)
+        cond_args.append(cond_arg)
+
+    cond_dict_keys = tuple(cond_dict_keys)
+    return cond_def, cond_name, cond_dict_keys, cond_args, true

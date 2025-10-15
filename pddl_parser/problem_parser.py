@@ -1,7 +1,7 @@
 import numpy as np
 
 from yaml import safe_load
-from typing import Dict, List, Union, Tuple, Optional, TypeVar, Generic
+from typing import Dict, List, Tuple, Optional
 
 from scipy.spatial import KDTree
 from pypddl.block_domain import at, gripper_empty, at_top, holding, clear, pose_supported, At

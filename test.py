@@ -1,6 +1,5 @@
 from pypddl.block_domain import at, gripper_empty, at_top, holding, clear, pose_supported, At
-from pypddl.block_domain import Object, Pose, Block, Robot, move, grasp, place
-from pypddl.core import States, State, ActionResults
+from pypddl.block_domain import Block, Robot, move, grasp, place
 from pddl_parser.problem_parser import parse_config_to_states
 
 def test():
