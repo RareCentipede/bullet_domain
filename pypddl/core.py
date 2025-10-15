@@ -1,7 +1,7 @@
 import copy
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Callable, Tuple, Union, Any, NewType, Type
+from typing import List, Dict, Callable, Tuple, Any, NewType, Type
 from functools import wraps
 from abc import abstractmethod
 
