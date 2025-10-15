@@ -5,8 +5,8 @@ from pypddl.core import action, Object, Pose, Predicate, State, ActionResults, C
 # Domain specific objects
 @dataclass
 class Block(Object):
-    on_top_of: Optional['Object'] = None
-    below: Optional['Object'] = None
+    on_top_of: Optional[Object] = None
+    below: Optional[Object] = None
 
 @dataclass
 class Robot(Object):
@@ -79,7 +79,7 @@ pose_supported = PoseSupported()
         Condition((at, {'robot': Robot, 'target_pose': Pose}, False))
     ],
     effects=[
-        Condition(((at, {'robot': Robot, 'init_pose': Pose}, False))),
+        Condition((at, {'robot': Robot, 'init_pose': Pose}, False)),
         Condition((at, {'robot': Robot, 'target_pose': Pose}, True))
     ]
 )
