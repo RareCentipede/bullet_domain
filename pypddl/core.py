@@ -13,7 +13,7 @@ class Thing:
 class Pose(Thing):
     position: Tuple[float, float, float]
     oreintation: Tuple[float, float, float, float] = (0, 0, 0, 1)
-    occupied_by: Optional[Any] = None
+    occupied_by: List[Any] = field(default_factory=lambda: [])
 
 @dataclass
 class Object(Thing):
@@ -22,7 +22,7 @@ class Object(Thing):
 
     def __post_init__(self):
         self.pose = self.init_pose
-        self.pose.occupied_by = self
+        self.pose.occupied_by.append(self)
 
 @dataclass
 class Predicate:
@@ -73,7 +73,11 @@ class States:
         self.states.append(self.goal_states)
 
     def update_states(self, state: State):
-        self.states.insert(len(self.states)-2, state)
+        self.states.insert(len(self.states)-1, state)
+
+    @property
+    def current_state(self):
+        return self.states[-2]
 
     @property
     def goal_reached(self):
@@ -93,39 +97,14 @@ class States:
 @dataclass
 class ActionResults:
     failed_preconds: List[Tuple[Callable, Dict[str, Type[Thing]], bool]]
-    new_state: Optional[State]
+    new_state: State
     result: str
 
     @property
     def success(self):
         return self.failed_preconds == []
 
-def action(preconds: List[Tuple[str, Callable, List]], effect: Callable):
-    def decorator(func):
-        @wraps(func)
-
-        def wrapper(*args, **kwargs):
-            failed_preconds = []
-
-            for name, precond, types in preconds:
-                expected_args = [arg for arg in args if isinstance(arg, tuple(types))]
-                if not precond(*expected_args):
-                    failed_preconds.append({
-                        'name': name,
-                        'args': [(p.__class__.__name__, p.name) for p in expected_args],
-                    })
-
-            if failed_preconds:
-                return failed_preconds
-
-            effect(*args, **kwargs)
-            func(*args, **kwargs)
-
-            return failed_preconds
-        return wrapper
-    return decorator
-
-def action2(preconds: List[Tuple[Callable, Dict[str, Type[Thing]], bool]], effects: List[Tuple[Callable, Dict[str, Type[Thing]], bool]]):
+def action(preconds: List[Tuple[Callable, Dict[str, Type[Thing]], bool]], effects: List[Tuple[Callable, Dict[str, Type[Thing]], bool]]):
     def decorator(func):
         @wraps(func)
 
@@ -136,20 +115,34 @@ def action2(preconds: List[Tuple[Callable, Dict[str, Type[Thing]], bool]], effec
             failed_preconds = find_failed_preconditions(state, kwargs, preconds)
 
             if failed_preconds == []:
+                if 'init_pose' in kwargs.keys():
+                    print()
+                    print([o.name for o in kwargs['init_pose'].occupied_by])
+                    print([o.name for o in kwargs['target_pose'].occupied_by])
+                action_results = func(state, **kwargs)
+                if 'init_pose' in kwargs.keys():
+                    print()
+                    print([o.name for o in kwargs['init_pose'].occupied_by])
+                    print([o.name for o in kwargs['target_pose'].occupied_by])
+                result = action_results.result
+
+                # print("EFFECTS:")
                 for effect in effects:
                     effect_pred, effect_args, true = effect
                     effect_name = effect_pred.name
-                    arg_names = tuple(effect_args.keys())
+                    arg_names = effect_args.keys()
 
-                    new_state[effect_name][arg_names] = true
-
+                    inputs = []
                     pred_inputs = []
                     for name in arg_names:
-                        pred_inputs.append(kwargs[name])
-                    effect_pred(*pred_inputs)
+                        kwarg = kwargs[name]
+                        pred_inputs.append(kwarg)
+                        inputs.append(kwarg.name)
 
-                action_results = func(state, **kwargs)
-                result = action_results.result
+                    inputs = tuple(inputs)
+                    # print(effect_name, inputs, effect_pred(*pred_inputs), true)
+                    new_state[effect_name] = {inputs: true}
+                    effect_pred.update(*pred_inputs, true)
             else:
                 result = "Failed"
 
@@ -171,15 +164,25 @@ def find_failed_preconditions(state: State, kwargs: Dict,
             selected_inputs[kwarg.name] = kwarg
 
         input_names = tuple(selected_inputs.keys())
-        corresponding_preds = state[pred_name]
+
+        # print("PRECONDS:")
+        if pred_name not in state.keys():
+            corresponding_preds = {input_names: pred(*selected_inputs.values())}
+            state[pred_name] = corresponding_preds
+        else:
+            corresponding_preds = state[pred_name]
 
         if input_names not in corresponding_preds.keys():
             corresponding_preds[input_names] = pred(*selected_inputs.values())
 
+        # print(pred_name, input_names, corresponding_preds[input_names])
+
         if corresponding_preds[input_names] != true:
             failed_preconditions.append({
                 'name': pred_name,
-                'args': pred_args,
+                'args': input_names,
+                'cond': {'in state': corresponding_preds[input_names],
+                         'expected': true}
             })
 
     return failed_preconditions

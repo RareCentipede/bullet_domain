@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional, Type, Dict, Any
-from pypddl.core import action, action2, Object, Pose, Predicate, State, States, ActionResults
+from pypddl.core import action, Object, Pose, Predicate, State, States, ActionResults
 
 # Domain specific objects
 @dataclass
@@ -54,7 +54,7 @@ class Clear(Predicate):
     name: str = 'clear'
 
     def eval(self, pose: Pose) -> bool:
-        return pose.occupied_by is None
+        return pose.occupied_by == [] or (len(pose.occupied_by) == 1 and type(pose.occupied_by) == Robot)
 
 @dataclass
 class PoseSupported(Predicate):
@@ -62,7 +62,6 @@ class PoseSupported(Predicate):
 
     def eval(self, pose: Pose) -> bool:
         return True
-
 
 # Aliases for easier use in decorators
 at = At()
@@ -85,82 +84,84 @@ pose_supported = PoseSupported()
 
 # Action definitions
 @action(
-    preconds=[('robot_not_at_target', not_at, [Robot, Pose])],
-    effect=lambda robot, target_pose: (
-        old_pose := robot.pose,
-        at.update(robot, old_pose, False),
-        not_at.update(robot, old_pose, True),
-
-        setattr(robot.pose, 'occupied_by', None),
-        setattr(robot, 'pose', target_pose),
-    )
-)
-def move(robot: Robot, target_pose: Pose):
-    print(f"Moving robot {robot.name} to pose {target_pose.name}: {target_pose.position}")
-
-@action(
-    preconds=[('robot_gripper_empty', gripper_empty, [Robot]),
-              ('robot_at_picking_pose', at, [Robot, Pose]),
-              ('object_at_picking_pose', at, [Block, Pose]),
-              ('object_at_top', at_top, [Block])],
-    effect=lambda robot, obj, pose: (
-        gripper_empty.update(robot, False),
-        holding.update(robot, obj, True),
-        clear.update(pose, True),
-        at.update(obj, obj.pose, False),
-        not_at.update(obj, obj.pose, True),
-
-        setattr(robot, 'gripper_empty', False),
-        setattr(robot, 'holding', obj),
-        setattr(obj.on_top_of, 'underneath', None) if obj.on_top_of else None,
-        setattr(obj, 'on_top_of', None),
-        setattr(pose, 'occupied_by', None),
-    )
-)
-def grasp(robot: Robot, obj: Object, pose: Pose):
-    print(f"Robot {robot.name} grasps object {obj.name} at pose {pose.name}: {pose.position}")
-
-@action(
-    preconds=[('robot_holding_obj', holding, [Robot, Block]),
-              ('robot_at_placing_pose', at, [Robot, Pose]),
-              ('placing_pose_clear', clear, [Pose]),
-              ('position_supported', pose_supported, [Pose])],
-    effect=lambda robot, obj, target_pose: (
-        not_at.update(obj, obj.pose, True),
-        at.update(obj, target_pose, True),
-        gripper_empty.update(robot, True),
-        holding.update(robot, obj, False),
-        clear.update(target_pose, False),
-        at_top.update(obj, True),
-
-        setattr(obj, 'pose', target_pose),
-        setattr(robot, 'gripper_empty', True),
-        setattr(robot, 'holding', None),
-        setattr(target_pose, 'occupied_by', obj),
-        support_block := None,
-        setattr(obj, 'on_top_of', support_block),
-        setattr(support_block, 'underneath', obj) if support_block is not None else None
-
-    )
-)
-def place(robot: Robot, obj: Block, target_pose: Pose):
-    print(f"Robot {robot.name} places object {obj.name} on support {obj.on_top_of.name if obj.on_top_of is not None else 'ground'} at pose {target_pose.name}: {target_pose.position}")
-
-@action2(
     preconds=[
         (at, {'robot': Robot, 'init_pose': Pose}, True),
-        (at, {'robot': Robot, 'target_pose': Pose}, False)],
+        (at, {'robot': Robot, 'target_pose': Pose}, False)
+    ],
     effects=[
         (at, {'robot': Robot, 'init_pose': Pose}, False),
-        (at, {'robot': Robot, 'target_pose': Pose}, True)]
+        (at, {'robot': Robot, 'target_pose': Pose}, True)
+    ]
 )
-def move2(state: State, robot: Robot, init_pose: Pose, target_pose: Pose) -> ActionResults:
-    init_pose.occupied_by = None
-    target_pose.occupied_by = robot
-
+def move(state: State, robot: Robot, init_pose: Pose, target_pose: Pose) -> ActionResults:
+    init_pose.occupied_by.remove(robot)
+    target_pose.occupied_by.append(robot)
     robot.pose = target_pose
-    print(f"Moving robot {robot.name} from {init_pose.name}: {init_pose.position} to {target_pose.name}: {target_pose.position}")
 
-    res_str = f"Movved {robot.name} from {init_pose.name}: {init_pose.position} to {target_pose.name}: {target_pose.position}"
+    res_str = f"Moved {robot.name} from {init_pose.name}: {init_pose.position} to {target_pose.name}: {target_pose.position}"
+    print(res_str)
 
-    return ActionResults([], None, res_str)
+    return ActionResults([], state, res_str)
+
+@action(
+    preconds=[
+        (gripper_empty, {'robot': Robot}, True),
+        (at, {'robot': Robot, 'object_pose': Pose}, True),
+        (at, {'target_object': Block, 'object_pose': Pose}, True),
+        (at_top, {'target_object': Block}, True)
+    ],
+    effects=[
+        (gripper_empty, {'robot': Robot}, False),
+        (holding, {'robot': Robot, 'target_object': Block}, True),
+        (clear, {'object_pose': Pose}, True),
+        (at, {'target_object': Block, 'object_pose': Pose}, False)
+    ]
+)
+def grasp(state: State, robot: Robot, target_object: Block, object_pose: Pose) -> ActionResults:
+    robot.gripper_empty = False
+    robot.holding = target_object
+    object_pose.occupied_by.remove(target_object)
+    target_object.pose = Pose('nan', (-1, -1, -1))
+
+    below_obj = target_object.on_top_of
+    if isinstance(below_obj, Block):
+        below_obj.below = None
+
+    target_object.on_top_of = None
+
+    res_str = f"Robot {robot.name} grasps object {target_object.name} at pose {object_pose.name}: {object_pose.position}"
+    print(res_str)
+
+    return ActionResults([], state, res_str)
+
+@action(
+    preconds=[
+        (holding, {'robot': Robot, 'object': Block}, True),
+        (at, {'robot': Robot, 'target_pose': Pose}, True),
+        (clear, {'target_pose': Pose}, True),
+        (pose_supported, {'target_pose': Pose}, True)
+    ],
+    effects=[
+        (at, {'object': Block, 'target_pose': Pose}, True),
+        (gripper_empty, {'robot': Robot}, True),
+        (holding, {'robot': Robot, 'object': Block}, False),
+        (clear, {'target_pose': Pose}, False),
+        (at_top, {'object': Block}, True)
+    ]
+)
+def place(state: State, robot: Robot, object: Block, target_pose: Pose) -> ActionResults:
+    object.pose = target_pose
+    robot.gripper_empty = True
+    robot.holding = None
+    target_pose.occupied_by.append(object)
+
+    support_block = None
+    object.on_top_of = support_block
+
+    if isinstance(support_block, Block):
+        support_block.below = object
+
+    res_str = f"Robot {robot.name} places object {object.name} on support {object.on_top_of.name if object.on_top_of is not None else 'ground'} at pose {target_pose.name}: {target_pose.position}"
+    print(res_str)
+
+    return ActionResults([], state, res_str)

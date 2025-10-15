@@ -44,9 +44,10 @@ def define_init_objects_and_poses(states: States, init_config: Dict):
 
         if obj_type == "block":
             obj = Block(obj_name, pose)
-            pose.occupied_by = obj
         else:
             obj = Robot(obj_name, pose)
+
+        pose.occupied_by.append(obj)
 
         states.objects[obj_name] = obj
         states.poses[pose_name] = pose
@@ -128,3 +129,5 @@ def define_init_predicates(states: States):
 
     states.init_states['at_top'] = at_top.evaluated_predicates
     states.init_states['clear'] = clear.evaluated_predicates
+    gripper_empty(states.get_obj_of_type('robot', Robot))
+    states.init_states['gripper_empty'] = gripper_empty.evaluated_predicates
