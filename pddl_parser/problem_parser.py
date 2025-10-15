@@ -47,8 +47,6 @@ def define_init_objects_and_poses(states: States, init_config: Dict):
         else:
             obj = Robot(obj_name, pose)
 
-        pose.occupied_by.append(obj)
-
         states.objects[obj_name] = obj
         states.poses[pose_name] = pose
 

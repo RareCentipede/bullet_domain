@@ -115,18 +115,9 @@ def action(preconds: List[Tuple[Callable, Dict[str, Type[Thing]], bool]], effect
             failed_preconds = find_failed_preconditions(state, kwargs, preconds)
 
             if failed_preconds == []:
-                if 'init_pose' in kwargs.keys():
-                    print()
-                    print([o.name for o in kwargs['init_pose'].occupied_by])
-                    print([o.name for o in kwargs['target_pose'].occupied_by])
                 action_results = func(state, **kwargs)
-                if 'init_pose' in kwargs.keys():
-                    print()
-                    print([o.name for o in kwargs['init_pose'].occupied_by])
-                    print([o.name for o in kwargs['target_pose'].occupied_by])
                 result = action_results.result
 
-                # print("EFFECTS:")
                 for effect in effects:
                     effect_pred, effect_args, true = effect
                     effect_name = effect_pred.name
@@ -165,7 +156,6 @@ def find_failed_preconditions(state: State, kwargs: Dict,
 
         input_names = tuple(selected_inputs.keys())
 
-        # print("PRECONDS:")
         if pred_name not in state.keys():
             corresponding_preds = {input_names: pred(*selected_inputs.values())}
             state[pred_name] = corresponding_preds
@@ -174,8 +164,6 @@ def find_failed_preconditions(state: State, kwargs: Dict,
 
         if input_names not in corresponding_preds.keys():
             corresponding_preds[input_names] = pred(*selected_inputs.values())
-
-        # print(pred_name, input_names, corresponding_preds[input_names])
 
         if corresponding_preds[input_names] != true:
             failed_preconditions.append({
