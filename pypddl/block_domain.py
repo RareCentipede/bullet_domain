@@ -76,6 +76,7 @@ pose_supported = PoseSupported()
     ]
 )
 def move(state: State, robot: Robot, init_pose: Pose, target_pose: Pose) -> ActionResults:
+    print("MOVING")
     init_pose.occupied_by.remove(robot)
     target_pose.occupied_by.append(robot)
     robot.pose = target_pose
@@ -83,7 +84,7 @@ def move(state: State, robot: Robot, init_pose: Pose, target_pose: Pose) -> Acti
     res_str = f"Moved {robot.name} from {init_pose.name}: {init_pose.position} to {target_pose.name}: {target_pose.position}"
     print(res_str)
 
-    return ActionResults([], state, res_str)
+    return ActionResults({}, state, res_str)
 
 @action(
     preconds=[
@@ -100,6 +101,7 @@ def move(state: State, robot: Robot, init_pose: Pose, target_pose: Pose) -> Acti
     ]
 )
 def grasp(state: State, robot: Robot, target_object: Block, object_pose: Pose) -> ActionResults:
+    print("GRASPING")
     robot.gripper_empty = False
     robot.holding = target_object
     object_pose.occupied_by.remove(target_object)
@@ -114,7 +116,7 @@ def grasp(state: State, robot: Robot, target_object: Block, object_pose: Pose) -
     res_str = f"Robot {robot.name} grasps object {target_object.name} at pose {object_pose.name}: {object_pose.position}"
     print(res_str)
 
-    return ActionResults([], state, res_str)
+    return ActionResults({}, state, res_str)
 
 @action(
     preconds=[
@@ -132,6 +134,7 @@ def grasp(state: State, robot: Robot, target_object: Block, object_pose: Pose) -
     ]
 )
 def place(state: State, robot: Robot, object: Block, target_pose: Pose) -> ActionResults:
+    print("PLACING")
     object.pose = target_pose
     robot.gripper_empty = True
     robot.holding = None
@@ -146,4 +149,4 @@ def place(state: State, robot: Robot, object: Block, target_pose: Pose) -> Actio
     res_str = f"Robot {robot.name} places object {object.name} on support {object.on_top_of.name if object.on_top_of is not None else 'ground'} at pose {target_pose.name}: {target_pose.position}"
     print(res_str)
 
-    return ActionResults([], state, res_str)
+    return ActionResults({}, state, res_str)

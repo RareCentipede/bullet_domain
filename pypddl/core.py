@@ -97,7 +97,7 @@ class States:
 
 @dataclass
 class ActionResults:
-    failed_preconds: List[Condition]
+    failed_preconds: Dict[str, Condition]
     new_state: State
     result: str
 
@@ -110,11 +110,10 @@ def action(preconds: List[Condition], effects: List[Condition]):
         @wraps(func)
 
         def wrapper(state: State, **kwargs) -> ActionResults:
-            failed_preconds = []
             new_state = copy.deepcopy(state)
             failed_preconds = find_failed_preconditions(state, kwargs, preconds)
 
-            if failed_preconds == []:
+            if failed_preconds == {}:
                 action_results = func(state, **kwargs)
                 result = action_results.result
 
@@ -130,28 +129,32 @@ def action(preconds: List[Condition], effects: List[Condition]):
         return wrapper
     return decorator
 
-def find_failed_preconditions(state: State, kwargs: Dict, preconditions: List[Condition]) -> List[Condition]:
-    failed_preconditions = []
+def find_failed_preconditions(state: State, kwargs: Dict, preconditions: List[Condition]) -> Dict[str, Condition]:
+    failed_preconditions = {}
     for precond in preconditions:
         precond_def, precond_name, precond_dict_keys, precond_args, true = unpack_conditions(precond, kwargs)
 
         if precond_name not in state.keys():
             predicate = {precond_dict_keys: precond_def(*precond_args)}
             state[precond_name] = predicate
+            actual_pred_state = predicate[precond_dict_keys]
         else:
             predicate = state[precond_name]
 
             if precond_dict_keys not in predicate.keys():
-                predicate[precond_dict_keys] = precond_def(*precond_args)
+                actual_pred_state = precond_def(*precond_args)
+            else:
+                actual_pred_state = predicate[precond_dict_keys]
 
-        if predicate[precond_dict_keys] != true:
-            failed_preconditions.append({
-                'name': precond_name,
-                'args': precond_dict_keys,
-            })
+        condition_dict = {}
+        for key, arg in zip(precond_dict_keys, precond_args):
+            condition_dict[key] = arg
+
+        if actual_pred_state != true:
+            failed_preconditions[precond_name] = Condition((precond_def, condition_dict, actual_pred_state))
 
     return failed_preconditions
-    
+
 def unpack_conditions(condition: Condition, kwargs: Dict) -> Tuple[Callable, str, Tuple[str, ...], List, bool]:
     cond_def, cond_types, true = condition
     cond_name = cond_def.name
