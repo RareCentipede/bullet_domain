@@ -148,8 +148,6 @@ def find_failed_preconditions(state: State, kwargs: Dict, preconditions: List[Co
             failed_preconditions.append({
                 'name': precond_name,
                 'args': precond_dict_keys,
-                'cond': {'in state': predicate[precond_dict_keys],
-                         'expected': true}
             })
 
     return failed_preconditions

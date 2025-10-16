@@ -21,14 +21,7 @@ class At(Predicate):
     def eval(self, obj: Object, pose: Pose) -> bool:
         return obj.pose == pose
 
-@dataclass 
-class NotAt(Predicate):
-    name: str = 'not_at'
-
-    def eval(self, obj: Object, pose: Pose) -> bool:
-        return obj.pose != pose
-
-@dataclass 
+@dataclass
 class GripperEmpty(Predicate):
     name: str = 'gripper_empty'
 
@@ -65,7 +58,6 @@ class PoseSupported(Predicate):
 
 # Aliases for easier use in decorators
 at = At()
-not_at = NotAt()
 gripper_empty = GripperEmpty()
 at_top = AtTop()
 holding = Holding()

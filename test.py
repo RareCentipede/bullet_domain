@@ -9,11 +9,11 @@ def test():
     states.initialize_states()
     robot = states.get_obj_of_type('robot', Robot)
     block_2 = states.get_obj_of_type('block_2', Block)
-    print([p for p in states.poses])
+
     a, args = successor_dagger(states.current_state, states.goal_states)
     params = states.objects[args[1]]
     pose = states.poses[args[2]]
-    print(a(states.current_state, robot=robot, object=params, target_pose=pose))
+    print(a(states.current_state, robot=robot, object=params, target_pose=pose).failed_preconds)
 
     # results = move(states.init_states, robot=robot, init_pose=robot.pose, target_pose=block_2.pose)
     # states.update_states(results.new_state)
