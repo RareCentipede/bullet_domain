@@ -28,16 +28,29 @@ def conflict_driven_task_graph(states: States, action_skeleton: List, goals: Lis
     action, args = successor_dagger(current_state, goal_state)
     action_skeleton.append({'action': action, 'args': args})
 
+    print(args) # args from successor dagger not in proper format
+
     action_results = action(current_state, args)
-    conflicts = action_results.failed_preconds
+    conflicts = [action_results.failed_preconds]
 
-    while conflicts:
-        a_r, args, s = resolve_conflicts(states, conflicts)
-        action_skeleton.insert(len(action_skeleton)-1, {'action': a_r, 'args': args})
-        goals.insert(len(goals)-1, s)
+    conflict_index = 0
 
-        conflicts = action(s, args).failed_preconds
+    while conflicts != []:
+        conflict_name, conflict = list(conflicts[0].items())[0]
+        a_r, args = resolve_conflicts(states, conflict_name, conflict)
 
+        current_state = states.current_state
+        action_results = action(current_state, args)
+        new_conflicts = action_results.failed_preconds
+
+        if new_conflicts:
+            conflicts.insert(0, new_conflicts)
+        else:
+            action_skeleton.insert(len(action_skeleton)-1, {'action': a_r, 'args': args})
+            goals.insert(len(goals)-1, current_state)
+            states.update_states(action_results.new_state)
+
+        # conflicts.insert(0, action(s, args).failed_preconds)
 
     goals.append(goal_state)
 
@@ -54,35 +67,33 @@ def successor_dagger(current_state: State, goal_state: State) -> Tuple[Callable,
 
     return place, goal
 
-def resolve_conflicts(states: States, conflicts: Dict[str, Condition]) -> List[Tuple[Callable, Dict[str, Type[Thing]], State]]:
-    conflict_names = list(conflicts.keys())
+def resolve_conflicts(states: States, conflict_name: str, conflict: Condition) -> Tuple[Callable, Dict[str, Type[Thing]]]:
     robot = states.get_obj_of_type('robot', Robot)
     resolutions = []
 
-    for conflict_name in conflict_names:
-        match conflict_name:
-            case 'holding':
-                print("Resolving holding conflict...")
-                holding_conflicts = conflicts['holding']
-                missing_obj = list(holding_conflicts[1].values())[1]
+    match conflict_name:
+        case 'holding':
+            print("Resolving holding conflict...")
+            missing_obj = list(conflict[1].values())[1]
 
-                if isinstance(missing_obj, Block):
-                    results = grasp(states.current_state, robot=robot, target_object=missing_obj, object_pose=missing_obj.pose)
-                    resolution_callable = grasp
-                    resolution_args = {'robot': robot, 'target_object': missing_obj, 'object_pose': missing_obj.pose}
+            if isinstance(missing_obj, Block):
+                # results = grasp(states.current_state, robot=robot, target_object=missing_obj, object_pose=missing_obj.pose)
+                resolution_callable = grasp
+                resolution_args = {'robot': robot, 'target_object': missing_obj, 'object_pose': missing_obj.pose}
 
-            case 'at':
-                print("Resolving at conflict...")
-                at_conflicts = conflicts['at']
-                target_pose = list(at_conflicts[1].values())[1]
+        case 'at':
+            print("Resolving at conflict...")
+            target_pose = list(conflict[1].values())[1]
 
-                if isinstance(target_pose, Pose):
-                    results = move(states.current_state, robot=robot, init_pose=robot.pose, target_pose=target_pose)
-                    resolution_callable = move
-                    resolution_args = {'robot': robot, 'init_pose': robot.pose, 'target_pose': target_pose}
+            if isinstance(target_pose, Pose):
+                # results = move(states.current_state, robot=robot, init_pose=robot.pose, target_pose=target_pose)
+                resolution_callable = move
+                resolution_args = {'robot': robot, 'init_pose': robot.pose, 'target_pose': target_pose}
 
-            case _:
-                raise NotImplementedError(f"Conflict {conflict_names} not implemented yet or doesn't exist.")
+        case _:
+            raise NotImplementedError(f"Conflict {conflict_name} not implemented yet or doesn't exist.")
 
-        resolutions.append((resolution_callable, resolution_args, results.new_state))
+    print(resolution_args)
+
+    resolutions = (resolution_callable, resolution_args)
     return resolutions

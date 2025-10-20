@@ -4,7 +4,7 @@ from pypddl.block_domain import at, gripper_empty, at_top, holding, clear, pose_
 from pypddl.block_domain import Block, Robot, move, grasp, place
 from pddl_parser.problem_parser import parse_config_to_states
 
-from d_lgp.dynamic_logic_geometric_programmer import dynamic_tree_search, successor_dagger, resolve_conflicts
+from d_lgp.dynamic_logic_geometric_programmer import dynamic_tree_search, successor_dagger, resolve_conflicts, conflict_driven_task_graph
 
 def test():
     states = parse_config_to_states('basic')
@@ -12,18 +12,31 @@ def test():
     robot = states.get_obj_of_type('robot', Robot)
     block_2 = states.get_obj_of_type('block_2', Block)
 
-    results = place(states.init_states, robot=robot, object=block_2, target_pose=block_2.goal_pose)
-    print(results.new_state['at'])
+    action_skeleton, goals = [], []
+    conflict_driven_task_graph(states, action_skeleton, goals)
+    print("Action Skeleton:")
+    for action in action_skeleton:
+        print(action['action'].__name__, [states.objects[arg] for arg in action['args']])
+    print("Goals:")
+    for goal in goals:
+        print(goal['at'])
 
-    resolutions = resolve_conflicts(states, results.failed_preconds)
+    results = place(states.init_states, robot=robot, object=block_2, target_pose=block_2.goal_pose)
+    # print(results)
+
+    failed_preconds = results.failed_preconds
+    conflict_name, conflict = list(failed_preconds.items())[0]
+
+    resolutions = resolve_conflicts(states, conflict_name, conflict)
+    # print(resolutions)
 
     # results = place(states.init_states, robot=robot, object=block_2, target_pose=block_2.goal_pose)
     # print(results.failed_preconds.keys())
-
-    for res in resolutions:
-        a, args, s = res
+                               
+    # for res in resolutions:
+        # a, args, s = res
         # states.update_states(s)
-        print("Resolving with action:", a.__name__, "and args:", [a.name for a in list(args.values())])
+        # print("Resolving with action:", a.__name__, "and args:", [a.name for a in list(args.values())])
         # res = a(states.current_state, **args)
         # print(res.new_state['at'])
         # states.update_states(res.new_state)
