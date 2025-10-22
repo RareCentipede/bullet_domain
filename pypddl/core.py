@@ -70,15 +70,25 @@ class States:
         return obj
 
     def initialize_states(self):
-        self.states.append(self.init_states)
-        self.states.append(self.goal_states)
+        self.states.append(copy.deepcopy(self.init_states))
 
-    def update_states(self, state: State):
-        self.states.insert(len(self.states)-1, state)
+    def update_states(self, new_state: State):
+        current_state = copy.deepcopy(self.current_state)
+
+        for pred_name, pred in new_state.items():
+            current_state_pred = current_state.get(pred_name)
+
+            if current_state_pred is None:
+                current_state[pred_name] = pred
+            else:
+                for args_key, true in pred.items():
+                    current_state_pred[args_key] = true
+
+        self.states.append(current_state)
 
     @property
     def current_state(self):
-        return self.states[-2]
+        return self.states[-1]
 
     @property
     def goal_reached(self):
@@ -111,7 +121,7 @@ def action(preconds: List[Condition], effects: List[Condition]):
 
         def wrapper(state: State, **kwargs) -> ActionResults:
             new_state = copy.deepcopy(state)
-            failed_preconds = find_failed_preconditions(state, kwargs, preconds)
+            failed_preconds = find_failed_preconditions(new_state, kwargs, preconds)
 
             if failed_preconds == {}:
                 action_results = func(state, **kwargs)

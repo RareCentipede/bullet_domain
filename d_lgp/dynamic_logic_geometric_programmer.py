@@ -26,29 +26,42 @@ def conflict_driven_task_graph(states: States, action_skeleton: List, goals: Lis
     goal_state = states.goal_states
 
     action, args = successor_dagger(current_state, goal_state)
-    action_skeleton.append({'action': action, 'args': args})
 
-    print(args) # args from successor dagger not in proper format
+    input_args = {
+        'state': current_state,
+        'robot': states.get_obj_of_type('robot', Robot),
+        'object': states.objects[args[1]],
+        'target_pose': states.poses[args[2]]
+    }
 
-    action_results = action(current_state, args)
-    conflicts = [action_results.failed_preconds]
+    action_skeleton.append({'action': action, 'args': input_args})
+    goals.append(goal_state)
 
-    conflict_index = 0
+    action_results = action(**input_args)
+    conflicts = [precond for precond in action_results.failed_preconds.items()]
 
     while conflicts != []:
-        conflict_name, conflict = list(conflicts[0].items())[0]
+        selected_conflict = conflicts[0]
+        conflict_name, conflict = selected_conflict
+
         a_r, args = resolve_conflicts(states, conflict_name, conflict)
+        print(f"resolution action: {a_r.__name__}")
 
         current_state = states.current_state
-        action_results = action(current_state, args)
-        new_conflicts = action_results.failed_preconds
+
+        args['state'] = current_state # type: ignore
+
+        action_results = a_r(**args)
+        new_conflicts = [preconds for preconds in action_results.failed_preconds.items()]
 
         if new_conflicts:
-            conflicts.insert(0, new_conflicts)
+            for i, conflict in enumerate(new_conflicts):
+                conflicts.insert(i, conflict)
         else:
             action_skeleton.insert(len(action_skeleton)-1, {'action': a_r, 'args': args})
             goals.insert(len(goals)-1, current_state)
             states.update_states(action_results.new_state)
+            conflicts.remove(selected_conflict)
 
         # conflicts.insert(0, action(s, args).failed_preconds)
 
@@ -82,7 +95,7 @@ def resolve_conflicts(states: States, conflict_name: str, conflict: Condition) -
                 resolution_args = {'robot': robot, 'target_object': missing_obj, 'object_pose': missing_obj.pose}
 
         case 'at':
-            print("Resolving at conflict...")
+            print(f"Resolving at conflict {conflict[1].keys()}")
             target_pose = list(conflict[1].values())[1]
 
             if isinstance(target_pose, Pose):
@@ -92,8 +105,6 @@ def resolve_conflicts(states: States, conflict_name: str, conflict: Condition) -
 
         case _:
             raise NotImplementedError(f"Conflict {conflict_name} not implemented yet or doesn't exist.")
-
-    print(resolution_args)
 
     resolutions = (resolution_callable, resolution_args)
     return resolutions

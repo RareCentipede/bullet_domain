@@ -15,19 +15,25 @@ def test():
     action_skeleton, goals = [], []
     conflict_driven_task_graph(states, action_skeleton, goals)
     print("Action Skeleton:")
+
     for action in action_skeleton:
-        print(action['action'].__name__, [states.objects[arg] for arg in action['args']])
-    print("Goals:")
-    for goal in goals:
-        print(goal['at'])
+        a, args = action.items()
+        print(f"Action: {a[1].__name__}")
 
-    results = place(states.init_states, robot=robot, object=block_2, target_pose=block_2.goal_pose)
-    # print(results)
+        print("Args:")
+        for arg in args[1].values():
+            print(arg.name if type(arg) != dict else "state")
+            # print(arg.name)
 
-    failed_preconds = results.failed_preconds
-    conflict_name, conflict = list(failed_preconds.items())[0]
+    # print(states.current_state)
+    results = place(states.current_state, robot=robot, object=block_2, target_pose=block_2.goal_pose)
+    print(results.failed_preconds.keys())
+    states.update_states(results.new_state)
 
-    resolutions = resolve_conflicts(states, conflict_name, conflict)
+    for i, state in enumerate(states.states):
+        print(f"State {i}: {state}\n")
+    # failed_preconds = results.failed_preconds
+    # print(failed_preconds.keys())
     # print(resolutions)
 
     # results = place(states.init_states, robot=robot, object=block_2, target_pose=block_2.goal_pose)
