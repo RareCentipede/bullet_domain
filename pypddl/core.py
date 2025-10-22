@@ -100,8 +100,15 @@ class States:
             corresponding_state = final_state[name]
 
             for goal_key in cond.keys():
-                current_state_true = corresponding_state[goal_key]
-                goal_conds.append(goal_key is current_state_true)
+                current_state_true = corresponding_state.get(goal_key, None)
+
+                if current_state_true is None:
+                    goal_conds.append(False)
+                    continue
+
+                goal_state[name][goal_key] = current_state_true
+                goal_true = cond[goal_key]
+                goal_conds.append(goal_true)
 
         return all(goal_conds)
 

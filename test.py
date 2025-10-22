@@ -12,8 +12,8 @@ def test():
     robot = states.get_obj_of_type('robot', Robot)
     block_2 = states.get_obj_of_type('block_2', Block)
 
-    action_skeleton, goals = [], []
-    conflict_driven_task_graph(states, action_skeleton, goals)
+    action_skeleton, goals = dynamic_tree_search(states)
+    # conflict_driven_task_graph(states, action_skeleton, goals)
     print("Action Skeleton:")
 
     for action in action_skeleton:
@@ -24,14 +24,6 @@ def test():
         for arg in args[1].values():
             print(arg.name if type(arg) != dict else "state")
             # print(arg.name)
-
-    # print(states.current_state)
-    results = place(states.current_state, robot=robot, object=block_2, target_pose=block_2.goal_pose)
-    print(results.failed_preconds.keys())
-    states.update_states(results.new_state)
-
-    for i, state in enumerate(states.states):
-        print(f"State {i}: {state}\n")
     # failed_preconds = results.failed_preconds
     # print(failed_preconds.keys())
     # print(resolutions)

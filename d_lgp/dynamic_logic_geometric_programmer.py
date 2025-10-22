@@ -5,17 +5,21 @@ from pypddl.core import States, State, Thing, Condition, ActionResults
 from pypddl.block_domain import at, gripper_empty, at_top, holding, clear, pose_supported, At
 from pypddl.block_domain import Object, Pose, Block, Robot, move, grasp, place
 
-def dynamic_tree_search(states: States) -> Tuple[List[Dict[str, Union[List[Callable], List[str]]]], List[State]]:
+def dynamic_tree_search(states: States) -> Tuple[List, List[State]]:
     action_skeleton, goals = [], []
 
     conflict_driven_task_graph(states, action_skeleton, goals)
 
     while not states.goal_reached:
-        last_feasible_action, last_feasible_action_args = action_skeleton[-1].items()
+        last_feasible_action, last_feasible_action_args = action_skeleton[-1].values()
 
-        action_results = last_feasible_action(states.current_state, *last_feasible_action_args)
+        action_results = last_feasible_action(**last_feasible_action_args)
         next_state = action_results.new_state
         states.update_states(next_state)
+
+        if states.goal_reached:
+            print("Goal reached, ending DTLG search.")
+            break
 
         conflict_driven_task_graph(states, action_skeleton, goals)
 
@@ -63,8 +67,6 @@ def conflict_driven_task_graph(states: States, action_skeleton: List, goals: Lis
             states.update_states(action_results.new_state)
             conflicts.remove(selected_conflict)
 
-        # conflicts.insert(0, action(s, args).failed_preconds)
-
     goals.append(goal_state)
 
 def successor_dagger(current_state: State, goal_state: State) -> Tuple[Callable, Tuple[str, ...]]:
@@ -104,7 +106,7 @@ def resolve_conflicts(states: States, conflict_name: str, conflict: Condition) -
                 resolution_args = {'robot': robot, 'init_pose': robot.pose, 'target_pose': target_pose}
 
         case _:
-            raise NotImplementedError(f"Conflict {conflict_name} not implemented yet or doesn't exist.")
+            raise NotImplementedError(f"Conflict {conflict_name}: {conflict} not implemented yet or doesn't exist.")
 
     resolutions = (resolution_callable, resolution_args)
     return resolutions
