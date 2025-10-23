@@ -1,31 +1,112 @@
 from abc import abstractmethod
-from typing import List, Tuple, Dict, Union, Callable
+from typing import List, Tuple, Dict, Union, Callable, Type
 
-from pypddl.core import States, State
-from pypddl.block_domain import at, not_at, gripper_empty, at_top, holding, clear, pose_supported, At
+from pypddl.core import States, State, Thing, Condition, ActionResults
+from pypddl.block_domain import at, gripper_empty, at_top, holding, clear, pose_supported, At
 from pypddl.block_domain import Object, Pose, Block, Robot, move, grasp, place
 
+def dynamic_tree_search(states: States) -> Tuple[List, List[State]]:
+    action_skeleton, goals = [], []
+
+    conflict_driven_task_graph(states, action_skeleton, goals)
+
+    while not states.goal_reached:
+        last_feasible_action, last_feasible_action_args = action_skeleton[-1].values()
+
+        action_results = last_feasible_action(**last_feasible_action_args)
+        next_state = action_results.new_state
+        states.update_states(next_state)
+
+        if states.goal_reached:
+            print("Goal reached, ending DTLG search.")
+            break
+
+        conflict_driven_task_graph(states, action_skeleton, goals)
+
+    return action_skeleton, goals
+
 def conflict_driven_task_graph(states: States, action_skeleton: List, goals: List) -> None:
-    current_state = states.states[-2]
+    current_state = states.current_state
     goal_state = states.goal_states
 
     action, args = successor_dagger(current_state, goal_state)
-    action_skeleton.append({'action': action, 'args': args})
 
-    conflicts = action(args)
+    input_args = {
+        'state': current_state,
+        'robot': states.get_obj_of_type('robot', Robot),
+        'object': states.objects[args[1]],
+        'target_pose': states.poses[args[2]]
+    }
 
-    while conflicts:
-        a_r, args, s = resolve_conflicts(states, conflicts)
-        action_skeleton.insert(len(action_skeleton)-2, a_r)
-        goals.insert(len(goals)-2, s)
+    action_skeleton.append({'action': action, 'args': input_args})
+    goals.append(goal_state)
 
-        conflicts = action(args)
+    action_results = action(**input_args)
+    conflicts = [precond for precond in action_results.failed_preconds.items()]
+
+    while conflicts != []:
+        selected_conflict = conflicts[0]
+        conflict_name, conflict = selected_conflict
+
+        a_r, args = resolve_conflicts(states, conflict_name, conflict)
+        print(f"resolution action: {a_r.__name__}")
+
+        current_state = states.current_state
+
+        args['state'] = current_state # type: ignore
+
+        action_results = a_r(**args)
+        new_conflicts = [preconds for preconds in action_results.failed_preconds.items()]
+
+        if new_conflicts:
+            for i, conflict in enumerate(new_conflicts):
+                conflicts.insert(i, conflict)
+        else:
+            action_skeleton.insert(len(action_skeleton)-1, {'action': a_r, 'args': args})
+            goals.insert(len(goals)-1, current_state)
+            states.update_states(action_results.new_state)
+            conflicts.remove(selected_conflict)
+
+    goals.append(goal_state)
 
 def successor_dagger(current_state: State, goal_state: State) -> Tuple[Callable, Tuple[str, ...]]:
-    return (callable, ())
+    goal = ()
 
-def successor(current_state: State, action: str, action_args: Tuple[str, ...]) -> State:
-    return State({})
+    # Select a goal state
+    for args, true in goal_state['at'].items():
+        if not true:
+            args = list(args)
+            args.insert(0, 'at')
+            goal = tuple(args)
+            break
 
-def resolve_conflicts(states: States, conflicts: List[Dict[str, Union[str, List[str]]]]) -> Tuple[Callable, Tuple[str, ...], List[State]]:
-    return (callable, (), [])
+    return place, goal
+
+def resolve_conflicts(states: States, conflict_name: str, conflict: Condition) -> Tuple[Callable, Dict[str, Type[Thing]]]:
+    robot = states.get_obj_of_type('robot', Robot)
+    resolutions = []
+
+    match conflict_name:
+        case 'holding':
+            print("Resolving holding conflict...")
+            missing_obj = list(conflict[1].values())[1]
+
+            if isinstance(missing_obj, Block):
+                # results = grasp(states.current_state, robot=robot, target_object=missing_obj, object_pose=missing_obj.pose)
+                resolution_callable = grasp
+                resolution_args = {'robot': robot, 'target_object': missing_obj, 'object_pose': missing_obj.pose}
+
+        case 'at':
+            print(f"Resolving at conflict {conflict[1].keys()}")
+            target_pose = list(conflict[1].values())[1]
+
+            if isinstance(target_pose, Pose):
+                # results = move(states.current_state, robot=robot, init_pose=robot.pose, target_pose=target_pose)
+                resolution_callable = move
+                resolution_args = {'robot': robot, 'init_pose': robot.pose, 'target_pose': target_pose}
+
+        case _:
+            raise NotImplementedError(f"Conflict {conflict_name}: {conflict} not implemented yet or doesn't exist.")
+
+    resolutions = (resolution_callable, resolution_args)
+    return resolutions
