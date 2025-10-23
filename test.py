@@ -1,4 +1,4 @@
-from enum import Enum # TODO Nice to use later for SAS+
+from enum import Enum, auto # TODO Nice to use later for SAS+
 from dataclasses import dataclass
 from pypddl.block_domain import at, gripper_empty, at_top, holding, clear, pose_supported, At
 from pypddl.block_domain import Block, Robot, move, grasp, place
@@ -12,17 +12,42 @@ def test():
     robot = states.get_obj_of_type('robot', Robot)
     block_2 = states.get_obj_of_type('block_2', Block)
 
-    action_skeleton, goals = dynamic_tree_search(states)
-    # conflict_driven_task_graph(states, action_skeleton, goals)
-    print("Action Skeleton:")
+    p1 = states.poses['p1']
+    p2 = states.poses['p2']
+    p3 = states.poses['p3']
 
-    for action in action_skeleton:
-        a, args = action.items()
-        print(f"Action: {a[1].__name__}")
+    @dataclass
+    class PosEnum:
+        position: Enum
 
-        print("Args:")
-        for arg in args[1].values():
-            print(arg.name if type(arg) != dict else "state")
+    poses = states.poses
+    # add any new poses first so the Enum includes them
+    poses['new_pose'] = p1
+    Pos = Enum('Pos', poses)
+    # pos_enum = PosEnum(position=Pos['p1'])
+
+    @dataclass
+    class RobotPos:
+        position: Pos
+
+    robot_pos = RobotPos(position=Pos['p1'])
+    robot_pos.position = Pos['p2']
+    print(robot_pos.position.value)
+
+    robot_pos.position = Pos['new_pose']
+    print(robot_pos.position.value)
+
+    # action_skeleton, goals = dynamic_tree_search(states)
+    # # conflict_driven_task_graph(states, action_skeleton, goals)
+    # print("Action Skeleton:")
+
+    # for action in action_skeleton:
+    #     a, args = action.items()
+    #     print(f"Action: {a[1].__name__}")
+
+    #     print("Args:")
+    #     for arg in args[1].values():
+    #         print(arg.name if type(arg) != dict else "state")
             # print(arg.name)
     # failed_preconds = results.failed_preconds
     # print(failed_preconds.keys())
